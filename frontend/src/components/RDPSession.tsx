@@ -68,17 +68,19 @@ export default function RDPSession({
     const guacTunnelStateChange = tunnel.onstatechange;
     tunnel.onstatechange = (state: Guacamole.Tunnel.State) => {
       guacTunnelStateChange?.call(tunnel, state);
-      if (state === Guacamole.Tunnel.State.OPEN)   setStatus('connected');
+      if (state === Guacamole.Tunnel.State.OPEN) {
+        setStatus('connected');
+        // Send size directly through tunnel — client.sendSize() requires CONNECTED
+        // state which may not be set yet. Sending here ensures guacd gets the
+        // resolution immediately and starts streaming the framebuffer.
+        tunnel.sendMessage('size', session.params.width, session.params.height);
+        console.log('[RDP] sent size', session.params.width, session.params.height);
+      }
       if (state === Guacamole.Tunnel.State.CLOSED)  setStatus('disconnected');
     };
 
     client.onstatechange = (state: number) => {
-      // 3 = CONNECTED, 5 = DISCONNECTED
-      if (state === 3) {
-        setStatus('connected');
-        // Send display size so guacd starts streaming the framebuffer
-        client.sendSize(session.params.width, session.params.height);
-      }
+      console.log('[RDP] client state:', state);
       if (state === 5) setStatus('disconnected');
     };
     client.onerror = (s: Guacamole.Status) => {
