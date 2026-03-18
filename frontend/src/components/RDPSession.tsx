@@ -87,24 +87,45 @@ export default function RDPSession({
     const ro = new ResizeObserver(scaleDisplay);
     ro.observe(displayRef.current);
 
-    // Mouse — scale coordinates back to display space
-    const mouse = new Guacamole.Mouse(el);
-    const sendMouse = (state: Guacamole.Mouse.State) => {
+    // Mouse — use raw DOM events so MouseEvent.buttons reflects the physical
+    // button state even when the cursor dragged in from another browser window.
+    // This enables seamless click-drag across the primary/secondary monitors.
+    const sendMouseFromEvent = (e: MouseEvent) => {
       if (!rdpReadyRef.current) return;
+      e.preventDefault();
       const s = scaleRef.current || 1;
+      const rect = el.getBoundingClientRect();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scaled = new (Guacamole.Mouse.State as any)(
-        Math.round(state.x / s), Math.round(state.y / s),
-        state.left, state.middle, state.right, state.up, state.down,
+      const state = new (Guacamole.Mouse.State as any)(
+        Math.round((e.clientX - rect.left) / s),
+        Math.round((e.clientY - rect.top)  / s),
+        (e.buttons & 1) !== 0,  // left
+        (e.buttons & 4) !== 0,  // middle
+        (e.buttons & 2) !== 0,  // right
+        false, false,
       );
-      client.sendMouseState(scaled);
+      client.sendMouseState(state);
     };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (mouse as any).onmousedown =
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (mouse as any).onmousemove =
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (mouse as any).onmouseup = sendMouse;
+    const sendWheelFromEvent = (e: WheelEvent) => {
+      if (!rdpReadyRef.current) return;
+      e.preventDefault();
+      const s = scaleRef.current || 1;
+      const rect = el.getBoundingClientRect();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const state = new (Guacamole.Mouse.State as any)(
+        Math.round((e.clientX - rect.left) / s),
+        Math.round((e.clientY - rect.top)  / s),
+        false, false, false,
+        e.deltaY < 0,  // scroll up
+        e.deltaY > 0,  // scroll down
+      );
+      client.sendMouseState(state);
+    };
+    el.addEventListener('mousemove',   sendMouseFromEvent);
+    el.addEventListener('mousedown',   sendMouseFromEvent);
+    el.addEventListener('mouseup',     sendMouseFromEvent);
+    el.addEventListener('contextmenu', (ev) => ev.preventDefault());
+    el.addEventListener('wheel',       sendWheelFromEvent, { passive: false });
 
     // Keyboard (only when this session is focused)
     const keyboard = new Guacamole.Keyboard(document);

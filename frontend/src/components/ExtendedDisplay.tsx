@@ -47,31 +47,43 @@ export default function ExtendedDisplay({ primaryWidth }: Props) {
     const ro = new ResizeObserver(scaleDisplay);
     ro.observe(container);
 
-    // Mouse — forward to primary with coordinates in full display-space.
-    // Guacamole.Mouse reports x relative to el's left edge (which is off-screen
-    // at -primaryWidth*scale). Dividing by scale gives full display-space x,
-    // which already includes the primaryWidth offset automatically.
-    const mouse = new Guacamole.Mouse(el);
-    const sendMouse = (state: Guacamole.Mouse.State) => {
+    // Mouse — raw DOM events with e.buttons so physical drag state is preserved
+    // when the cursor enters this window mid-drag from the primary window.
+    // el is offset left by -primaryWidth*scale, so (clientX - rect.left)/scale
+    // automatically gives the correct full display-space x (>= primaryWidth).
+    const sendMouseFromEvent = (e: MouseEvent) => {
+      e.preventDefault();
       const dh = display.getHeight();
       const s = dh ? container.clientHeight / dh : 1;
+      const rect = el.getBoundingClientRect();
       send({
         type: 'secondary-mouse',
-        x: Math.round(state.x / s),
-        y: Math.round(state.y / s),
-        left:   state.left,
-        middle: state.middle,
-        right:  state.right,
-        up:     state.up,
-        down:   state.down,
+        x:      Math.round((e.clientX - rect.left) / s),
+        y:      Math.round((e.clientY - rect.top)  / s),
+        left:   (e.buttons & 1) !== 0,
+        middle: (e.buttons & 4) !== 0,
+        right:  (e.buttons & 2) !== 0,
+        up: false, down: false,
       });
     };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (mouse as any).onmousedown =
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (mouse as any).onmousemove =
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (mouse as any).onmouseup = sendMouse;
+    const sendWheelFromEvent = (e: WheelEvent) => {
+      e.preventDefault();
+      const dh = display.getHeight();
+      const s = dh ? container.clientHeight / dh : 1;
+      const rect = el.getBoundingClientRect();
+      send({
+        type: 'secondary-mouse',
+        x:      Math.round((e.clientX - rect.left) / s),
+        y:      Math.round((e.clientY - rect.top)  / s),
+        left: false, middle: false, right: false,
+        up: e.deltaY < 0, down: e.deltaY > 0,
+      });
+    };
+    el.addEventListener('mousemove',   sendMouseFromEvent);
+    el.addEventListener('mousedown',   sendMouseFromEvent);
+    el.addEventListener('mouseup',     sendMouseFromEvent);
+    el.addEventListener('contextmenu', (ev) => ev.preventDefault());
+    el.addEventListener('wheel',       sendWheelFromEvent, { passive: false });
 
     // Keyboard — forward to primary.
     const keyboard = new Guacamole.Keyboard(document);
