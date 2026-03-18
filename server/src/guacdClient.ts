@@ -26,6 +26,9 @@ function parseInstruction(raw: string): string[] {
 
 // Map guacd arg names → RDP param values
 function paramValue(arg: string, p: RDPParams): string {
+  // Version negotiation: echo back any VERSION_* arg guacd advertises
+  if (/^VERSION_/.test(arg)) return arg;
+
   const m: Record<string, string> = {
     hostname:                     p.host,
     port:                         String(p.port),
@@ -38,9 +41,9 @@ function paramValue(arg: string, p: RDPParams): string {
     'color-depth':                String(p.colorDepth),
     security:                     p.security,
     'ignore-cert':                p.ignoreCert ? 'true' : 'false',
+    'disable-audio':              'true',
     'enable-drive':               'false',
     'create-drive-path':          'false',
-    'enable-audio':               'true',
     'enable-font-smoothing':      'true',
     'enable-full-window-drag':    'false',
     'enable-desktop-composition': 'false',
@@ -48,6 +51,7 @@ function paramValue(arg: string, p: RDPParams): string {
     'disable-bitmap-caching':     'false',
     'disable-offscreen-caching':  'false',
     'disable-glyph-caching':      'false',
+    'resize-method':              'display-update',
   };
   return m[arg] ?? '';
 }
