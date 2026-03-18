@@ -91,6 +91,7 @@ export default function App() {
       if (msg.type === 'extend-display') {
         setExtendedMode(true);
         setExtPrimaryWidth(msg.primaryWidth);
+        setShowForm(false);
       }
     };
 
@@ -284,8 +285,8 @@ export default function App() {
           </div>
         )}
 
-        {/* Connect form modal */}
-        {showForm && (
+        {/* Connect form modal — hidden on secondary extended display */}
+        {showForm && !(myDisplay === 'secondary' && extendedMode) && (
           <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowForm(false); }}>
             <ConnectForm onConnect={handleConnect} />
           </div>
