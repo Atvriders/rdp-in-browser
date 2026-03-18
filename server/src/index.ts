@@ -28,6 +28,14 @@ interface ConnectBody {
   colorDepth?: number;
   security?: string;
   ignoreCert?: boolean;
+  enableWallpaper?: boolean;
+  enableTheming?: boolean;
+  enableFontSmoothing?: boolean;
+  enableDesktopComposition?: boolean;
+  enableFullWindowDrag?: boolean;
+  enableMenuAnimations?: boolean;
+  disableBitmapCaching?: boolean;
+  disableAudio?: boolean;
 }
 
 function makeToken(p: ConnectBody): string {
@@ -46,14 +54,14 @@ function makeToken(p: ConnectBody): string {
         'color-depth':         String(p.colorDepth ?? 24),
         security:              p.security  ?? 'any',
         'ignore-cert':         (p.ignoreCert !== false) ? 'true' : 'false',
-        'disable-audio':       'true',
-        'enable-wallpaper':           'true',
-        'enable-theming':             'true',
-        'enable-font-smoothing':      'true',
-        'enable-full-window-drag':    'false',
-        'enable-desktop-composition': 'true',
-        'enable-menu-animations':     'false',
-        'disable-bitmap-caching':     'false',
+        'disable-audio':              (p.disableAudio              !== false) ? 'true' : 'false',
+        'enable-wallpaper':           (p.enableWallpaper            !== false) ? 'true' : 'false',
+        'enable-theming':             (p.enableTheming              !== false) ? 'true' : 'false',
+        'enable-font-smoothing':      (p.enableFontSmoothing        !== false) ? 'true' : 'false',
+        'enable-desktop-composition': (p.enableDesktopComposition   !== false) ? 'true' : 'false',
+        'enable-full-window-drag':    (p.enableFullWindowDrag       === true)  ? 'true' : 'false',
+        'enable-menu-animations':     (p.enableMenuAnimations       === true)  ? 'true' : 'false',
+        'disable-bitmap-caching':     (p.disableBitmapCaching       === true)  ? 'true' : 'false',
         'disable-offscreen-caching':  'false',
         'disable-glyph-caching':      'false',
         'resize-method':       'reconnect',

@@ -80,6 +80,18 @@
   padding: 0;
 }
 .cf-advanced { display: flex; flex-direction: column; gap: 10px; }
+.cf-adv-section {
+  font-size: 11px;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-top: 4px;
+}
+.cf-checks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+}
 .cf-checkbox {
   display: flex;
   align-items: center;

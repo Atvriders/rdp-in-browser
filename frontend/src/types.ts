@@ -10,6 +10,15 @@ export interface ConnectParams {
   security: string;
   ignoreCert: boolean;
   label?: string;
+  // Visual quality
+  enableWallpaper: boolean;
+  enableTheming: boolean;
+  enableFontSmoothing: boolean;
+  enableDesktopComposition: boolean;
+  enableFullWindowDrag: boolean;
+  enableMenuAnimations: boolean;
+  disableBitmapCaching: boolean;
+  disableAudio: boolean;
 }
 
 export interface RDPSession {

@@ -14,10 +14,18 @@ const DEFAULTS: ConnectParams = {
   domain: '',
   width: 1920,
   height: 1080,
-  colorDepth: 24,
+  colorDepth: 32,
   security: 'any',
   ignoreCert: true,
   label: '',
+  enableWallpaper: true,
+  enableTheming: true,
+  enableFontSmoothing: true,
+  enableDesktopComposition: true,
+  enableFullWindowDrag: false,
+  enableMenuAnimations: false,
+  disableBitmapCaching: false,
+  disableAudio: true,
 };
 
 const SAVED_KEY = 'rdp-saved-connections';
@@ -31,8 +39,8 @@ function saveTo(list: ConnectParams[]) {
 }
 
 export default function ConnectForm({ onConnect }: Props) {
-  const [form, setForm]       = useState<ConnectParams>(DEFAULTS);
-  const [saved, setSaved]     = useState<ConnectParams[]>(loadSaved);
+  const [form, setForm]         = useState<ConnectParams>(DEFAULTS);
+  const [saved, setSaved]       = useState<ConnectParams[]>(loadSaved);
   const [advanced, setAdvanced] = useState(false);
 
   const set = (k: keyof ConnectParams, v: string | number | boolean) =>
@@ -40,10 +48,8 @@ export default function ConnectForm({ onConnect }: Props) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('[ConnectForm] submit, host:', form.host);
     if (!form.host.trim()) return;
     const params = { ...form, label: form.label || form.host };
-    // Save to recent
     const updated = [params, ...saved.filter(s => s.host !== params.host)].slice(0, 10);
     setSaved(updated); saveTo(updated);
     onConnect(params);
@@ -114,6 +120,7 @@ export default function ConnectForm({ onConnect }: Props) {
 
         {advanced && (
           <div className="cf-advanced">
+            <div className="cf-adv-section">Resolution &amp; Color</div>
             <div className="cf-row">
               <label className="cf-label cf-flex">
                 Width
@@ -125,8 +132,6 @@ export default function ConnectForm({ onConnect }: Props) {
                 <input className="cf-input" type="number" value={form.height}
                   onChange={e => set('height', parseInt(e.target.value, 10))} />
               </label>
-            </div>
-            <div className="cf-row">
               <label className="cf-label cf-flex">
                 Color depth
                 <select className="cf-select" value={form.colorDepth}
@@ -134,25 +139,75 @@ export default function ConnectForm({ onConnect }: Props) {
                   <option value={8}>8-bit</option>
                   <option value={16}>16-bit</option>
                   <option value={24}>24-bit</option>
-                  <option value={32}>32-bit</option>
+                  <option value={32}>32-bit (best)</option>
                 </select>
               </label>
+            </div>
+
+            <div className="cf-adv-section">Visual Quality</div>
+            <div className="cf-checks">
+              <label className="cf-checkbox">
+                <input type="checkbox" checked={form.enableWallpaper}
+                  onChange={e => set('enableWallpaper', e.target.checked)} />
+                Wallpaper
+              </label>
+              <label className="cf-checkbox">
+                <input type="checkbox" checked={form.enableTheming}
+                  onChange={e => set('enableTheming', e.target.checked)} />
+                Theming
+              </label>
+              <label className="cf-checkbox">
+                <input type="checkbox" checked={form.enableFontSmoothing}
+                  onChange={e => set('enableFontSmoothing', e.target.checked)} />
+                Font smoothing
+              </label>
+              <label className="cf-checkbox">
+                <input type="checkbox" checked={form.enableDesktopComposition}
+                  onChange={e => set('enableDesktopComposition', e.target.checked)} />
+                Desktop composition
+              </label>
+              <label className="cf-checkbox">
+                <input type="checkbox" checked={form.enableFullWindowDrag}
+                  onChange={e => set('enableFullWindowDrag', e.target.checked)} />
+                Full window drag
+              </label>
+              <label className="cf-checkbox">
+                <input type="checkbox" checked={form.enableMenuAnimations}
+                  onChange={e => set('enableMenuAnimations', e.target.checked)} />
+                Menu animations
+              </label>
+              <label className="cf-checkbox">
+                <input type="checkbox" checked={form.disableBitmapCaching}
+                  onChange={e => set('disableBitmapCaching', e.target.checked)} />
+                Disable bitmap caching
+              </label>
+            </div>
+
+            <div className="cf-adv-section">Connection</div>
+            <div className="cf-row">
               <label className="cf-label cf-flex">
                 Security
                 <select className="cf-select" value={form.security}
                   onChange={e => set('security', e.target.value)}>
-                  <option value="any">Any</option>
+                  <option value="any">Any (auto)</option>
                   <option value="nla">NLA</option>
                   <option value="tls">TLS</option>
                   <option value="rdp">RDP (classic)</option>
                 </select>
               </label>
             </div>
-            <label className="cf-checkbox">
-              <input type="checkbox" checked={form.ignoreCert}
-                onChange={e => set('ignoreCert', e.target.checked)} />
-              Ignore certificate errors
-            </label>
+            <div className="cf-checks">
+              <label className="cf-checkbox">
+                <input type="checkbox" checked={form.ignoreCert}
+                  onChange={e => set('ignoreCert', e.target.checked)} />
+                Ignore certificate errors
+              </label>
+              <label className="cf-checkbox">
+                <input type="checkbox" checked={form.disableAudio}
+                  onChange={e => set('disableAudio', e.target.checked)} />
+                Disable audio
+              </label>
+            </div>
           </div>
         )}
 
