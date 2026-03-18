@@ -24,6 +24,7 @@ export class RDPTunnel extends Guacamole.Tunnel {
   }
 
   override connect(_data: string) {
+    console.log('[RDPTunnel] connect() called, host:', this.params.host);
     const url = new URL(this.wsBase, window.location.href);
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
     url.port = '3001';
@@ -39,6 +40,7 @@ export class RDPTunnel extends Guacamole.Tunnel {
     url.searchParams.set('security',   this.params.security);
     url.searchParams.set('ignoreCert', String(this.params.ignoreCert));
 
+    console.log('[RDPTunnel] WebSocket URL:', url.toString());
     this.ws = new WebSocket(url.toString());
 
     this.ws.onopen = () => {

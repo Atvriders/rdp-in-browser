@@ -29,6 +29,7 @@ export default function RDPSession({
 
   // ── Guacamole connection ───────────────────────────────────────────────────
   useEffect(() => {
+    console.log('[RDP] useEffect, displayRef:', !!displayRef.current, 'host:', session.params.host);
     if (!displayRef.current) return;
     setStatus('connecting');
     setErrMsg('');

@@ -40,6 +40,7 @@ export default function ConnectForm({ onConnect }: Props) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('[ConnectForm] submit, host:', form.host);
     if (!form.host.trim()) return;
     const params = { ...form, label: form.label || form.host };
     // Save to recent
