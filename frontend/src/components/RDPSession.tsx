@@ -19,6 +19,7 @@ export default function RDPSession({
 }: Props) {
   const displayRef  = useRef<HTMLDivElement>(null);
   const clientRef   = useRef<Guacamole.Client | null>(null);
+  const rdpReadyRef = useRef(false);
   const [status, setStatus]   = useState<'connecting' | 'connected' | 'error' | 'disconnected'>('connecting');
   const [errMsg, setErrMsg]   = useState('');
 
@@ -44,7 +45,7 @@ export default function RDPSession({
     el.style.height = '100%';
     displayRef.current.appendChild(el);
 
-    // Mouse
+    // Mouse — only forward events once FreeRDP is fully initialized (client state 3)
     const mouse = new Guacamole.Mouse(el);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (mouse as any).onmousedown =
@@ -52,7 +53,7 @@ export default function RDPSession({
     (mouse as any).onmousemove =
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (mouse as any).onmouseup = (state: Guacamole.Mouse.State) => {
-      client.sendMouseState(state);
+      if (rdpReadyRef.current) client.sendMouseState(state);
     };
 
     // Keyboard (only when this session is focused)
@@ -74,7 +75,8 @@ export default function RDPSession({
 
     client.onstatechange = (state: number) => {
       console.log('[RDP] client state:', state);
-      if (state === 5) setStatus('disconnected');
+      if (state === 3) rdpReadyRef.current = true;   // CONNECTED — FreeRDP fully up
+      if (state === 5) { rdpReadyRef.current = false; setStatus('disconnected'); }
     };
     client.onerror = (s: Guacamole.Status) => {
       setStatus('error');
@@ -84,6 +86,7 @@ export default function RDPSession({
     client.connect('');
 
     return () => {
+      rdpReadyRef.current = false;
       keyboard.onkeydown = null;
       keyboard.onkeyup   = null;
       client.disconnect();
