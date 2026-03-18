@@ -1,6 +1,6 @@
 services:
   guacd:
-    image: guacamole/guacd:latest
+    image: guacamole/guacd:1.5.0
     restart: unless-stopped
     ports:
       - "4822:4822"
