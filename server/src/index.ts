@@ -53,6 +53,7 @@ wss.on('connection', (ws: WebSocket, req) => {
 
   // Bridge callback registered synchronously inside handshake to avoid race condition
   const onBridge = (instr: string) => {
+    console.log(`[guacd→browser] ${instr.substring(0, 80)}`);
     if (ws.readyState === WebSocket.OPEN) ws.send(instr);
   };
 
@@ -64,7 +65,11 @@ wss.on('connection', (ws: WebSocket, req) => {
       if (ws.readyState === WebSocket.OPEN) ws.send(readyInstr);
 
       // browser → guacd
-      ws.on('message', (data) => guacd.send(data.toString()));
+      ws.on('message', (data) => {
+        const str = data.toString();
+        console.log(`[browser→guacd] ${str.substring(0, 80)}`);
+        guacd.send(str);
+      });
     })
     .catch((err: Error) => {
       console.error(`[rdp] handshake failed for ${params.host}:`, err.message);
