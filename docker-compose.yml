@@ -4,7 +4,8 @@ services:
     restart: unless-stopped
     ports:
       - "4822:4822"
-    command: ["-f", "-L", "debug"]
+    environment:
+      - GUACD_LOG_LEVEL=debug
 
   server:
     image: ghcr.io/atvriders/rdp-in-browser-server:master
