@@ -79,9 +79,10 @@ export class GuacdClient extends EventEmitter {
   }
 
   /** Perform SELECT → ARGS → CONNECT → READY handshake.
-   *  Resolves with the raw `ready` instruction string so the caller can
-   *  forward it to the browser (Guacamole.Client needs to see it). */
-  handshake(params: RDPParams): Promise<string> {
+   *  onBridge is registered as an instruction listener SYNCHRONOUSLY when
+   *  ready is received — before the Promise resolves — so no post-ready
+   *  instructions are lost to the async .then() gap. */
+  handshake(params: RDPParams, onBridge: (instr: string) => void): Promise<string> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('guacd handshake timeout')), 15_000);
 
@@ -105,7 +106,10 @@ export class GuacdClient extends EventEmitter {
           if (p2[0] === 'ready') {
             this.removeListener('instruction', onReady);
             clearTimeout(timeout);
-            resolve(raw2); // return the raw ready instruction
+            // Register bridge listener BEFORE resolving to avoid race condition
+            // where guacd emits instructions before .then() runs
+            this.on('instruction', onBridge);
+            resolve(raw2);
           } else if (p2[0] === 'error') {
             this.removeListener('instruction', onReady);
             clearTimeout(timeout);

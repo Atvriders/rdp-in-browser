@@ -51,25 +51,20 @@ wss.on('connection', (ws: WebSocket, req) => {
 
   const guacd = new GuacdClient(GUACD_HOST, GUACD_PORT);
 
-  guacd.handshake(params)
+  // Bridge callback registered synchronously inside handshake to avoid race condition
+  const onBridge = (instr: string) => {
+    if (ws.readyState === WebSocket.OPEN) ws.send(instr);
+  };
+
+  guacd.handshake(params, onBridge)
     .then((readyInstr: string) => {
       console.log(`[rdp] session ready for ${params.host}`);
 
       // Forward the `ready` instruction so Guacamole.Client transitions to CONNECTED
       if (ws.readyState === WebSocket.OPEN) ws.send(readyInstr);
 
-      // guacd → browser
-      guacd.on('instruction', (instr: string) => {
-        console.log(`[guacd→browser] ${instr.substring(0, 120)}`);
-        if (ws.readyState === WebSocket.OPEN) ws.send(instr);
-      });
-
       // browser → guacd
-      ws.on('message', (data) => {
-        const str = data.toString();
-        console.log(`[browser→guacd] ${str.substring(0, 120)}`);
-        guacd.send(str);
-      });
+      ws.on('message', (data) => guacd.send(data.toString()));
     })
     .catch((err: Error) => {
       console.error(`[rdp] handshake failed for ${params.host}:`, err.message);
