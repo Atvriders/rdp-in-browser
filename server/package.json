@@ -8,11 +8,10 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "ws": "^8.16.0"
+    "guacamole-lite": "^1.2.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "@types/ws": "^8.5.10",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.4.0"
   }

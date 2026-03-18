@@ -5,12 +5,16 @@ import type { ConnectParams } from '../types';
 type TunnelInternal = { setState: (state: Guacamole.Tunnel.State) => void };
 
 /**
- * Custom Guacamole tunnel backed by a plain WebSocket.
+ * Custom Guacamole tunnel backed by a plain WebSocket connected to guacamole-lite.
+ *
+ * Flow:
+ *   1. POST /api/token with connection params → receive encrypted token
+ *   2. Open WebSocket to /ws?token=TOKEN
+ *   3. guacamole-lite handles the guacd handshake transparently
  *
  * NOTE: guacamole-common-js sets connect/sendMessage/disconnect as INSTANCE
- * properties in the Tunnel() constructor (this.connect = function(){}), which
- * shadows any prototype overrides. We must re-assign them after super() to
- * ensure our implementations are used.
+ * properties in the Tunnel() constructor, shadowing prototype overrides.
+ * We re-assign them after super() so our implementations are used.
  */
 export class RDPTunnel extends Guacamole.Tunnel {
   private ws: WebSocket | null = null;
@@ -21,11 +25,9 @@ export class RDPTunnel extends Guacamole.Tunnel {
     private readonly params: ConnectParams,
   ) {
     super();
-
-    // Re-assign as instance properties to shadow the base class instance properties.
-    (this as unknown as { connect: (d: string) => void }).connect      = this._connect.bind(this);
+    (this as unknown as { connect: (d: string) => void }).connect           = this._connect.bind(this);
     (this as unknown as { sendMessage: (...e: unknown[]) => void }).sendMessage = this._sendMessage.bind(this);
-    (this as unknown as { disconnect: () => void }).disconnect = this._disconnect.bind(this);
+    (this as unknown as { disconnect: () => void }).disconnect              = this._disconnect.bind(this);
   }
 
   private setTunnelState(state: Guacamole.Tunnel.State) {
@@ -34,57 +36,67 @@ export class RDPTunnel extends Guacamole.Tunnel {
 
   private _connect(_data: string) {
     console.log('[RDPTunnel] _connect() called, host:', this.params.host);
-    const url = new URL(this.wsBase, window.location.href);
-    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-    url.port = '3001';
-    url.pathname = '/ws';
-    url.searchParams.set('host',       this.params.host);
-    url.searchParams.set('port',       String(this.params.port));
-    url.searchParams.set('username',   this.params.username);
-    url.searchParams.set('password',   this.params.password);
-    url.searchParams.set('domain',     this.params.domain);
-    url.searchParams.set('width',      String(this.params.width));
-    url.searchParams.set('height',     String(this.params.height));
-    url.searchParams.set('colorDepth', String(this.params.colorDepth));
-    url.searchParams.set('security',   this.params.security);
-    url.searchParams.set('ignoreCert', String(this.params.ignoreCert));
 
-    console.log('[RDPTunnel] WebSocket URL:', url.toString());
-    this.ws = new WebSocket(url.toString());
+    // Derive the server base URL (http/https, hostname, port 3001)
+    const base = new URL(this.wsBase, window.location.href);
+    const apiBase = `${base.protocol}//${base.hostname}:3001`;
 
-    this.ws.onopen = () => {
-      console.log('[RDPTunnel] WebSocket opened');
-      this.setTunnelState(Guacamole.Tunnel.State.OPEN);
-    };
+    // Step 1: fetch an encrypted token from the server
+    fetch(`${apiBase}/api/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(this.params),
+    })
+      .then(r => r.json() as Promise<{ token: string; error?: string }>)
+      .then(({ token, error }) => {
+        if (error || !token) throw new Error(error ?? 'No token returned');
 
-    this.ws.onclose = (e) => {
-      console.log('[RDPTunnel] WebSocket closed', e.code, e.reason);
-      this.setTunnelState(Guacamole.Tunnel.State.CLOSED);
-      if (!e.wasClean && this.onerror) {
-        this.onerror(new Guacamole.Status(
-          Guacamole.Status.Code.UPSTREAM_NOT_FOUND, e.reason || 'Connection closed',
-        ));
-      }
-    };
+        // Step 2: open WebSocket with token
+        const wsUrl = new URL('/ws', `ws://${base.hostname}:3001`);
+        if (base.protocol === 'https:') wsUrl.protocol = 'wss:';
+        wsUrl.searchParams.set('token', token);
+        console.log('[RDPTunnel] connecting to guacamole-lite:', wsUrl.toString());
 
-    this.ws.onerror = () => {
-      console.log('[RDPTunnel] WebSocket error');
-      if (this.onerror) {
-        this.onerror(new Guacamole.Status(
-          Guacamole.Status.Code.SERVER_ERROR, 'WebSocket error',
-        ));
-      }
-    };
+        this.ws = new WebSocket(wsUrl.toString());
 
-    this.ws.onmessage = (e: MessageEvent<string>) => {
-      this.buffer += e.data;
-      let end: number;
-      while ((end = this.buffer.indexOf(';')) !== -1) {
-        const raw = this.buffer.substring(0, end + 1);
-        this.buffer = this.buffer.substring(end + 1);
-        this.dispatch(raw);
-      }
-    };
+        this.ws.onopen = () => {
+          console.log('[RDPTunnel] WebSocket opened');
+          this.setTunnelState(Guacamole.Tunnel.State.OPEN);
+        };
+
+        this.ws.onclose = (e) => {
+          console.log('[RDPTunnel] WebSocket closed', e.code, e.reason);
+          this.setTunnelState(Guacamole.Tunnel.State.CLOSED);
+          if (!e.wasClean && this.onerror) {
+            this.onerror(new Guacamole.Status(
+              Guacamole.Status.Code.UPSTREAM_NOT_FOUND, e.reason || 'Connection closed',
+            ));
+          }
+        };
+
+        this.ws.onerror = () => {
+          console.log('[RDPTunnel] WebSocket error');
+          if (this.onerror) {
+            this.onerror(new Guacamole.Status(Guacamole.Status.Code.SERVER_ERROR, 'WebSocket error'));
+          }
+        };
+
+        this.ws.onmessage = (e: MessageEvent<string>) => {
+          this.buffer += e.data;
+          let end: number;
+          while ((end = this.buffer.indexOf(';')) !== -1) {
+            const raw = this.buffer.substring(0, end + 1);
+            this.buffer = this.buffer.substring(end + 1);
+            this.dispatch(raw);
+          }
+        };
+      })
+      .catch((err: Error) => {
+        console.error('[RDPTunnel] token fetch failed:', err.message);
+        if (this.onerror) {
+          this.onerror(new Guacamole.Status(Guacamole.Status.Code.SERVER_ERROR, err.message));
+        }
+      });
   }
 
   private dispatch(raw: string) {
@@ -118,7 +130,6 @@ export class RDPTunnel extends Guacamole.Tunnel {
     this.setTunnelState(Guacamole.Tunnel.State.CLOSED);
   }
 
-  // Keep override stubs so TypeScript doesn't complain about abstract methods
   override connect(_data: string) { this._connect(_data); }
   override sendMessage(...elements: unknown[]) { this._sendMessage(...elements); }
   override disconnect() { this._disconnect(); }
