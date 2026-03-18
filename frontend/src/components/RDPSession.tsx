@@ -38,9 +38,13 @@ export default function RDPSession({
     setStatus('connecting');
     setErrMsg('');
 
-    // In extended mode, double the width so Windows sees a combined display.
+    // In extended mode use the actual container pixel dimensions so the
+    // Guacamole display matches the viewport exactly (scale = 1.0, no blur).
+    // Width is doubled to span both monitors; height matches the display area.
+    const containerW = displayRef.current.clientWidth;
+    const containerH = displayRef.current.clientHeight;
     const tunnelParams = extendedModeRef.current
-      ? { ...session.params, width: session.params.width * 2 }
+      ? { ...session.params, width: containerW * 2, height: containerH }
       : session.params;
 
     const tunnel = new RDPTunnel(window.location.href, tunnelParams);
