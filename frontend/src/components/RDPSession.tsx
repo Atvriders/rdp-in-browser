@@ -21,6 +21,7 @@ export default function RDPSession({
   const clientRef   = useRef<Guacamole.Client | null>(null);
   const rdpReadyRef = useRef(false);
   const focusedRef  = useRef(focused);
+  const scaleRef    = useRef(1);
   const [status, setStatus]   = useState<'connecting' | 'connected' | 'error' | 'disconnected'>('connecting');
   const [errMsg, setErrMsg]   = useState('');
 
@@ -50,7 +51,7 @@ export default function RDPSession({
     el.style.left = '0';
     displayRef.current.appendChild(el);
 
-    // Scale the display to fit the container whenever the display or container resizes
+    // Scale the display to fit the container, centered, whenever either resizes
     const scaleDisplay = () => {
       const container = displayRef.current;
       if (!container) return;
@@ -58,22 +59,34 @@ export default function RDPSession({
       const dh = display.getHeight();
       if (!dw || !dh) return;
       const scale = Math.min(container.clientWidth / dw, container.clientHeight / dh);
+      scaleRef.current = scale;
       display.scale(scale);
+      // Center within the container
+      el.style.left = Math.max(0, (container.clientWidth  - dw * scale) / 2) + 'px';
+      el.style.top  = Math.max(0, (container.clientHeight - dh * scale) / 2) + 'px';
     };
     display.onresize = scaleDisplay;
     const ro = new ResizeObserver(scaleDisplay);
     ro.observe(displayRef.current);
 
-    // Mouse — only forward events once FreeRDP is fully initialized (client state 3)
+    // Mouse — scale coordinates back to display space (display is CSS-scaled)
     const mouse = new Guacamole.Mouse(el);
+    const sendMouse = (state: Guacamole.Mouse.State) => {
+      if (!rdpReadyRef.current) return;
+      const s = scaleRef.current || 1;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scaled = new (Guacamole.Mouse.State as any)(
+        Math.round(state.x / s), Math.round(state.y / s),
+        state.left, state.middle, state.right, state.up, state.down,
+      );
+      client.sendMouseState(scaled);
+    };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (mouse as any).onmousedown =
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (mouse as any).onmousemove =
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (mouse as any).onmouseup = (state: Guacamole.Mouse.State) => {
-      if (rdpReadyRef.current) client.sendMouseState(state);
-    };
+    (mouse as any).onmouseup = sendMouse;
 
     // Keyboard (only when this session is focused)
     const keyboard = new Guacamole.Keyboard(document);
