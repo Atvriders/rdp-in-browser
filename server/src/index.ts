@@ -1,6 +1,10 @@
 import * as http from 'http';
 import * as crypto from 'crypto';
-import GuacamoleLite from 'guacamole-lite';
+// guacamole-lite has no TypeScript types — import via require
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const GuacamoleLite = require('guacamole-lite') as new (
+  wsOptions: unknown, guacdOptions: unknown, clientOptions: unknown
+) => void;
 
 const GUACD_HOST  = process.env.GUACD_HOST  ?? 'localhost';
 const GUACD_PORT  = parseInt(process.env.GUACD_PORT  ?? '4822', 10);
@@ -102,8 +106,7 @@ const httpServer = http.createServer((req, res) => {
 
 // ── GuacamoleLite WebSocket bridge ────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-new (GuacamoleLite as any)(
+new GuacamoleLite(
   { server: httpServer, path: '/ws' },
   { host: GUACD_HOST, port: GUACD_PORT },
   {
