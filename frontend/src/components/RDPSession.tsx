@@ -45,9 +45,24 @@ export default function RDPSession({
 
     const display = client.getDisplay();
     const el = display.getElement();
-    el.style.width  = '100%';
-    el.style.height = '100%';
+    el.style.position = 'absolute';
+    el.style.top = '0';
+    el.style.left = '0';
     displayRef.current.appendChild(el);
+
+    // Scale the display to fit the container whenever the display or container resizes
+    const scaleDisplay = () => {
+      const container = displayRef.current;
+      if (!container) return;
+      const dw = display.getWidth();
+      const dh = display.getHeight();
+      if (!dw || !dh) return;
+      const scale = Math.min(container.clientWidth / dw, container.clientHeight / dh);
+      display.scale(scale);
+    };
+    display.onresize = scaleDisplay;
+    const ro = new ResizeObserver(scaleDisplay);
+    ro.observe(displayRef.current);
 
     // Mouse — only forward events once FreeRDP is fully initialized (client state 3)
     const mouse = new Guacamole.Mouse(el);
@@ -102,6 +117,7 @@ export default function RDPSession({
       rdpReadyRef.current = false;
       keyboard.onkeydown = null;
       keyboard.onkeyup   = null;
+      ro.disconnect();
       client.disconnect();
       if (displayRef.current && el.parentNode === displayRef.current) {
         displayRef.current.removeChild(el);
