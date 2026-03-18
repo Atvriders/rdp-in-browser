@@ -41,11 +41,13 @@ wss.on('connection', (ws: WebSocket, req) => {
   };
 
   if (!params.host) {
+    console.error('[rdp] rejected: missing host parameter');
     ws.close(1008, 'Missing host parameter');
     return;
   }
 
-  console.log(`[rdp] connect → ${params.username}@${params.host}:${params.port} (${params.width}×${params.height})`);
+  console.log(`[rdp] new WS connection from ${req.socket.remoteAddress}`);
+  console.log(`[rdp] connect → ${params.username}@${params.host}:${params.port} (${params.width}×${params.height} ${params.colorDepth}bpp security=${params.security} ignoreCert=${params.ignoreCert})`);
 
   const guacd = new GuacdClient(GUACD_HOST, GUACD_PORT);
 

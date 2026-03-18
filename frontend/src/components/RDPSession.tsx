@@ -63,9 +63,18 @@ export default function RDPSession({
       if (focused) client.sendKeyEvent(0, keysym);
     };
 
+    // Intercept tunnel state — OPEN means the WS bridge is up and guacd handshake completed
+    const guacTunnelStateChange = tunnel.onstatechange;
+    tunnel.onstatechange = (state: Guacamole.Tunnel.State) => {
+      guacTunnelStateChange?.call(tunnel, state);
+      if (state === Guacamole.Tunnel.State.OPEN)   setStatus('connected');
+      if (state === Guacamole.Tunnel.State.CLOSED)  setStatus('disconnected');
+    };
+
     client.onstatechange = (state: number) => {
-      if (state === Guacamole.Client.State.CONNECTED)    setStatus('connected');
-      if (state === Guacamole.Client.State.DISCONNECTED) setStatus('disconnected');
+      // 3 = CONNECTED, 5 = DISCONNECTED
+      if (state === 3) setStatus('connected');
+      if (state === 5) setStatus('disconnected');
     };
     client.onerror = (s: Guacamole.Status) => {
       setStatus('error');
