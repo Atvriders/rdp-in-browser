@@ -60,11 +60,16 @@ wss.on('connection', (ws: WebSocket, req) => {
 
       // guacd → browser
       guacd.on('instruction', (instr: string) => {
+        console.log(`[guacd→browser] ${instr.substring(0, 120)}`);
         if (ws.readyState === WebSocket.OPEN) ws.send(instr);
       });
 
       // browser → guacd
-      ws.on('message', (data) => guacd.send(data.toString()));
+      ws.on('message', (data) => {
+        const str = data.toString();
+        console.log(`[browser→guacd] ${str.substring(0, 120)}`);
+        guacd.send(str);
+      });
     })
     .catch((err: Error) => {
       console.error(`[rdp] handshake failed for ${params.host}:`, err.message);
