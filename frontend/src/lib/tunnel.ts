@@ -1,6 +1,9 @@
 import Guacamole from 'guacamole-common-js';
 import type { ConnectParams } from '../types';
 
+// setState is a protected method in guacamole-common-js but not exposed in the TS types
+type TunnelInternal = { setState: (state: Guacamole.Tunnel.State) => void };
+
 /**
  * Custom Guacamole tunnel backed by a plain WebSocket.
  * Connection params are passed as query-string to the /ws endpoint.
@@ -14,6 +17,10 @@ export class RDPTunnel extends Guacamole.Tunnel {
     private readonly params: ConnectParams,
   ) {
     super();
+  }
+
+  private setTunnelState(state: Guacamole.Tunnel.State) {
+    (this as unknown as TunnelInternal).setState(state);
   }
 
   override connect(_data: string) {
@@ -34,11 +41,11 @@ export class RDPTunnel extends Guacamole.Tunnel {
     this.ws = new WebSocket(url.toString());
 
     this.ws.onopen = () => {
-      this.setState(Guacamole.Tunnel.State.OPEN);
+      this.setTunnelState(Guacamole.Tunnel.State.OPEN);
     };
 
     this.ws.onclose = (e) => {
-      this.setState(Guacamole.Tunnel.State.CLOSED);
+      this.setTunnelState(Guacamole.Tunnel.State.CLOSED);
       if (!e.wasClean && this.onerror) {
         this.onerror(new Guacamole.Status(
           Guacamole.Status.Code.UPSTREAM_NOT_FOUND, e.reason || 'Connection closed',
@@ -82,16 +89,17 @@ export class RDPTunnel extends Guacamole.Tunnel {
     }
   }
 
-  override sendMessage(...elements: object[]) {
+  override sendMessage(...elements: unknown[]) {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      const strs = elements as string[];
-      const encoded = strs.map((s) => `${s.length}.${s}`).join(',') + ';';
+      const encoded = elements
+        .map((s) => { const str = String(s); return `${str.length}.${str}`; })
+        .join(',') + ';';
       this.ws.send(encoded);
     }
   }
 
   override disconnect() {
     this.ws?.close();
-    this.setState(Guacamole.Tunnel.State.CLOSED);
+    this.setTunnelState(Guacamole.Tunnel.State.CLOSED);
   }
 }
