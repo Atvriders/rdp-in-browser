@@ -51,6 +51,10 @@ function paramValue(arg: string, p: RDPParams): string {
     'disable-bitmap-caching':     'false',
     'disable-offscreen-caching':  'false',
     'disable-glyph-caching':      'false',
+    // Must be a valid non-empty string; empty string becomes NULL in guacd's
+    // param parser → strcmp(NULL, ...) → SIGSEGV in the child process.
+    // 'reconnect' is safe for Windows (display-update is not supported).
+    'resize-method':              'reconnect',
   };
   return m[arg] ?? '';
 }
@@ -118,12 +122,6 @@ export class GuacdClient extends EventEmitter {
           if (p2[0] === 'ready') {
             this.removeListener('instruction', onReady);
             clearTimeout(timeout);
-            // Populate user->info.optimal_width/height/resolution so guacd
-            // doesn't divide-by-zero on optimal_resolution == 0.
-            // Must arrive BEFORE FreeRDP starts reading input context.
-            const sizeInstr = encode('size', [String(params.width), String(params.height), '96']);
-            console.log('[guacd] sending size:', sizeInstr);
-            this.socket.write(sizeInstr);
             // Register bridge listener BEFORE resolving to avoid race condition
             // where guacd emits instructions before .then() runs
             this.on('instruction', onBridge);
