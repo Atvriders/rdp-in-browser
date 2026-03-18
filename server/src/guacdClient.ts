@@ -78,8 +78,10 @@ export class GuacdClient extends EventEmitter {
     this.socket.on('error', (err) => this.emit('error', err));
   }
 
-  /** Perform SELECT → ARGS → CONNECT → READY handshake */
-  handshake(params: RDPParams): Promise<void> {
+  /** Perform SELECT → ARGS → CONNECT → READY handshake.
+   *  Resolves with the raw `ready` instruction string so the caller can
+   *  forward it to the browser (Guacamole.Client needs to see it). */
+  handshake(params: RDPParams): Promise<string> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('guacd handshake timeout')), 15_000);
 
@@ -103,9 +105,7 @@ export class GuacdClient extends EventEmitter {
           if (p2[0] === 'ready') {
             this.removeListener('instruction', onReady);
             clearTimeout(timeout);
-            // Re-emit future instructions normally
-            this.socket.on('data', () => {}); // already hooked above
-            resolve();
+            resolve(raw2); // return the raw ready instruction
           } else if (p2[0] === 'error') {
             this.removeListener('instruction', onReady);
             clearTimeout(timeout);

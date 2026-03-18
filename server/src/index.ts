@@ -50,8 +50,11 @@ wss.on('connection', (ws: WebSocket, req) => {
   const guacd = new GuacdClient(GUACD_HOST, GUACD_PORT);
 
   guacd.handshake(params)
-    .then(() => {
+    .then((readyInstr: string) => {
       console.log(`[rdp] session ready for ${params.host}`);
+
+      // Forward the `ready` instruction so Guacamole.Client transitions to CONNECTED
+      if (ws.readyState === WebSocket.OPEN) ws.send(readyInstr);
 
       // guacd → browser
       guacd.on('instruction', (instr: string) => {
