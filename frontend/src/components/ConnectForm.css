@@ -1,0 +1,103 @@
+.cf-root {
+  width: 400px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: #e6edf3;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.cf-logo {
+  font-size: 22px;
+  font-weight: 700;
+  color: #58a6ff;
+  text-align: center;
+  letter-spacing: -0.3px;
+}
+
+.cf-saved { display: flex; flex-direction: column; gap: 4px; }
+.cf-saved-title { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 2px; }
+.cf-saved-item {
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: #e6edf3;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+.cf-saved-item:hover { border-color: #58a6ff; background: #111820; }
+.cf-saved-icon { font-size: 15px; }
+.cf-saved-label { font-weight: 600; font-size: 13px; flex: 1; }
+.cf-saved-host { font-size: 11px; color: #8b949e; }
+
+.cf-form { display: flex; flex-direction: column; gap: 10px; }
+.cf-section-title { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.8px; }
+.cf-row { display: flex; gap: 10px; }
+.cf-flex { flex: 1; }
+.cf-port { width: 90px; }
+.cf-optional { font-size: 11px; color: #6e7681; font-weight: 400; margin-left: 4px; }
+
+.cf-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #8b949e;
+  font-weight: 500;
+}
+.cf-input, .cf-select {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #e6edf3;
+  padding: 7px 10px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+.cf-input:focus, .cf-select:focus { border-color: #58a6ff; }
+.cf-input::placeholder { color: #484f58; }
+
+.cf-advanced-toggle {
+  background: none;
+  border: none;
+  color: #58a6ff;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+}
+.cf-advanced { display: flex; flex-direction: column; gap: 10px; }
+.cf-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #c9d1d9;
+  cursor: pointer;
+}
+.cf-submit {
+  background: #1f6feb;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  padding: 10px 0;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: background 0.15s;
+}
+.cf-submit:hover { background: #388bfd; }

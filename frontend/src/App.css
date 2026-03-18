@@ -1,0 +1,159 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: #0d1117;
+  color: #e6edf3;
+  overflow: hidden;
+}
+
+/* ── App root ── */
+.app-root {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Taskbar ── */
+.taskbar {
+  height: 44px;
+  background: #010409;
+  border-bottom: 1px solid #21262d;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 8px;
+  flex-shrink: 0;
+  z-index: 500;
+}
+
+.taskbar-btn {
+  background: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #e6edf3;
+  padding: 5px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.taskbar-btn:hover { background: #30363d; }
+.taskbar-btn.new:hover { background: #1f6feb; border-color: #1f6feb; }
+
+.taskbar-sessions {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.taskbar-sessions::-webkit-scrollbar { display: none; }
+
+.taskbar-session {
+  background: #161b22;
+  border: 1px solid #21262d;
+  border-radius: 5px;
+  color: #c9d1d9;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.1s;
+}
+.taskbar-session:hover    { background: #21262d; }
+.taskbar-session.focused  { background: #1f6feb; border-color: #388bfd; color: #fff; }
+.taskbar-session.minimized { opacity: 0.6; border-style: dashed; }
+
+.taskbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.taskbar-dual {
+  font-size: 12px;
+  color: #388bfd;
+  background: rgba(31,111,235,0.12);
+  border: 1px solid #1f6feb;
+  border-radius: 4px;
+  padding: 3px 8px;
+}
+.taskbar-display {
+  font-size: 11px;
+  color: #484f58;
+}
+
+/* ── Desktop ── */
+.desktop {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── Phantom (ghost) window ── */
+.phantom-window {
+  position: absolute;
+  right: 0;
+  background: rgba(31,111,235,0.08);
+  border: 2px dashed #388bfd;
+  border-radius: 6px;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  opacity: 0.7;
+}
+.phantom-titlebar {
+  height: 36px;
+  background: rgba(31,111,235,0.15);
+  border-bottom: 1px solid rgba(56,139,253,0.3);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 13px;
+  color: #388bfd;
+}
+
+/* ── Modal ── */
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(1,4,9,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+/* ── Empty state ── */
+.empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #484f58;
+  pointer-events: none;
+}
+.empty-icon  { font-size: 56px; }
+.empty-title { font-size: 20px; font-weight: 600; color: #6e7681; }
+.empty-sub   { font-size: 14px; color: #484f58; }
+.empty-sub strong { color: #6e7681; }
+.empty-pair  {
+  font-size: 13px;
+  color: #388bfd;
+  background: rgba(31,111,235,0.08);
+  border: 1px solid rgba(31,111,235,0.2);
+  border-radius: 6px;
+  padding: 8px 16px;
+  margin-top: 8px;
+  pointer-events: auto;
+}

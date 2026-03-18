@@ -1,0 +1,28 @@
+services:
+  guacd:
+    image: guacamole/guacd:latest
+    restart: unless-stopped
+    ports:
+      - "4822:4822"
+
+  server:
+    build:
+      context: ./server
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - GUACD_HOST=guacd
+      - GUACD_PORT=4822
+      - PORT=3001
+    depends_on:
+      - guacd
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - server
