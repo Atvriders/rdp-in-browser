@@ -27,6 +27,9 @@ function parseInstruction(raw: string): string[] {
 // Map guacd arg names → RDP param values
 function paramValue(arg: string, p: RDPParams): string {
   const m: Record<string, string> = {
+    // Echo version so guacd uses the 1.5.0 protocol, which waits for a
+    // `size` instruction before starting FreeRDP (avoiding optimal_resolution=0 crash)
+    VERSION_1_5_0:                'VERSION_1_5_0',
     hostname:                     p.host,
     port:                         String(p.port),
     username:                     p.username,
