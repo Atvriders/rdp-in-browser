@@ -81,7 +81,11 @@ export default function RDPSession({
       setErrMsg(s.message ?? 'Connection failed');
     };
 
-    client.connect('');
+    // Call tunnel.connect() directly — Guacamole.Client.connect() has a
+    // state-guard that silently skips tunnel.connect() in some versions.
+    // The client already registered oninstruction/onstatechange on the tunnel
+    // in its constructor, so it will receive and render everything normally.
+    tunnel.connect('');
 
     return () => {
       keyboard.onkeydown = null;
