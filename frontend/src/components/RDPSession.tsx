@@ -82,13 +82,11 @@ export default function RDPSession({
       setErrMsg(s.message ?? 'Connection failed');
     };
 
-    console.log('[RDP] about to call tunnel.connect, fn:', typeof tunnel.connect);
-    try {
-      tunnel.connect('');
-      console.log('[RDP] tunnel.connect() returned');
-    } catch (err) {
-      console.error('[RDP] tunnel.connect() threw:', err);
-    }
+    // Now that RDPTunnel assigns connect/sendMessage/disconnect as instance
+    // properties in its constructor, client.connect() correctly calls our
+    // _connect() and the Guacamole.Client state machine runs normally
+    // (sends size, audio, etc. so guacd knows to start streaming).
+    client.connect('');
 
     return () => {
       keyboard.onkeydown = null;
