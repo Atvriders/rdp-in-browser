@@ -26,6 +26,7 @@ export class RDPTunnel extends Guacamole.Tunnel {
   override connect(_data: string) {
     const url = new URL(this.wsBase, window.location.href);
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    url.port = '3001';
     url.pathname = '/ws';
     url.searchParams.set('host',       this.params.host);
     url.searchParams.set('port',       String(this.params.port));
