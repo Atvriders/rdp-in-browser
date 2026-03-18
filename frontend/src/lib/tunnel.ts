@@ -6,7 +6,11 @@ type TunnelInternal = { setState: (state: Guacamole.Tunnel.State) => void };
 
 /**
  * Custom Guacamole tunnel backed by a plain WebSocket.
- * Connection params are passed as query-string to the /ws endpoint.
+ *
+ * NOTE: guacamole-common-js sets connect/sendMessage/disconnect as INSTANCE
+ * properties in the Tunnel() constructor (this.connect = function(){}), which
+ * shadows any prototype overrides. We must re-assign them after super() to
+ * ensure our implementations are used.
  */
 export class RDPTunnel extends Guacamole.Tunnel {
   private ws: WebSocket | null = null;
@@ -17,14 +21,19 @@ export class RDPTunnel extends Guacamole.Tunnel {
     private readonly params: ConnectParams,
   ) {
     super();
+
+    // Re-assign as instance properties to shadow the base class instance properties.
+    (this as unknown as { connect: (d: string) => void }).connect      = this._connect.bind(this);
+    (this as unknown as { sendMessage: (...e: unknown[]) => void }).sendMessage = this._sendMessage.bind(this);
+    (this as unknown as { disconnect: () => void }).disconnect = this._disconnect.bind(this);
   }
 
   private setTunnelState(state: Guacamole.Tunnel.State) {
     (this as unknown as TunnelInternal).setState(state);
   }
 
-  override connect(_data: string) {
-    console.log('[RDPTunnel] connect() called, host:', this.params.host);
+  private _connect(_data: string) {
+    console.log('[RDPTunnel] _connect() called, host:', this.params.host);
     const url = new URL(this.wsBase, window.location.href);
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
     url.port = '3001';
@@ -44,10 +53,12 @@ export class RDPTunnel extends Guacamole.Tunnel {
     this.ws = new WebSocket(url.toString());
 
     this.ws.onopen = () => {
+      console.log('[RDPTunnel] WebSocket opened');
       this.setTunnelState(Guacamole.Tunnel.State.OPEN);
     };
 
     this.ws.onclose = (e) => {
+      console.log('[RDPTunnel] WebSocket closed', e.code, e.reason);
       this.setTunnelState(Guacamole.Tunnel.State.CLOSED);
       if (!e.wasClean && this.onerror) {
         this.onerror(new Guacamole.Status(
@@ -57,6 +68,7 @@ export class RDPTunnel extends Guacamole.Tunnel {
     };
 
     this.ws.onerror = () => {
+      console.log('[RDPTunnel] WebSocket error');
       if (this.onerror) {
         this.onerror(new Guacamole.Status(
           Guacamole.Status.Code.SERVER_ERROR, 'WebSocket error',
@@ -92,7 +104,7 @@ export class RDPTunnel extends Guacamole.Tunnel {
     }
   }
 
-  override sendMessage(...elements: unknown[]) {
+  private _sendMessage(...elements: unknown[]) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       const encoded = elements
         .map((s) => { const str = String(s); return `${str.length}.${str}`; })
@@ -101,8 +113,13 @@ export class RDPTunnel extends Guacamole.Tunnel {
     }
   }
 
-  override disconnect() {
+  private _disconnect() {
     this.ws?.close();
     this.setTunnelState(Guacamole.Tunnel.State.CLOSED);
   }
+
+  // Keep override stubs so TypeScript doesn't complain about abstract methods
+  override connect(_data: string) { this._connect(_data); }
+  override sendMessage(...elements: unknown[]) { this._sendMessage(...elements); }
+  override disconnect() { this._disconnect(); }
 }
