@@ -19,6 +19,7 @@ export interface ConnectParams {
   enableMenuAnimations: boolean;
   disableBitmapCaching: boolean;
   disableAudio: boolean;
+  multiMonitor?: boolean;
 }
 
 export interface RDPSession {

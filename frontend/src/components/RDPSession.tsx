@@ -41,10 +41,12 @@ export default function RDPSession({
     // In extended mode use the actual container pixel dimensions so the
     // Guacamole display matches the viewport exactly (scale = 1.0, no blur).
     // Width is doubled to span both monitors; height matches the display area.
+    // multiMonitor: true enables FreeRDP's /multimon flag so Windows sees two
+    // separate monitors instead of one ultra-wide display.
     const containerW = displayRef.current.clientWidth;
     const containerH = displayRef.current.clientHeight;
     const tunnelParams = extendedModeRef.current
-      ? { ...session.params, width: containerW * 2, height: containerH }
+      ? { ...session.params, width: containerW * 2, height: containerH, multiMonitor: true }
       : session.params;
 
     const tunnel = new RDPTunnel(window.location.href, tunnelParams);
