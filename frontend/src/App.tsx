@@ -25,10 +25,12 @@ export default function App() {
   const [extendedMode, setExtendedMode]           = useState(false);
   const [extendedPrimaryWidth, setExtPrimaryWidth] = useState(0);
 
-  const myDisplayRef    = useRef(myDisplay);
-  const extendedModeRef = useRef(extendedMode);
-  myDisplayRef.current    = myDisplay;
-  extendedModeRef.current = extendedMode;
+  const myDisplayRef         = useRef(myDisplay);
+  const extendedModeRef      = useRef(extendedMode);
+  const extPrimaryWidthRef   = useRef(extendedPrimaryWidth);
+  myDisplayRef.current       = myDisplay;
+  extendedModeRef.current    = extendedMode;
+  extPrimaryWidthRef.current = extendedPrimaryWidth;
 
   // ── BroadcastChannel + display detection ──────────────────────────────────
   useEffect(() => {
@@ -56,6 +58,11 @@ export default function App() {
         setPairedDisplay(msg.display);
         setPairedScreenX(msg.screenX);
         pong(myDisplayRef.current);
+        // If we're already in extended mode (e.g. secondary refreshed),
+        // re-send extend-display so the new window doesn't miss it.
+        if (extendedModeRef.current && myDisplayRef.current === 'primary') {
+          send({ type: 'extend-display', primaryWidth: extPrimaryWidthRef.current, totalHeight: window.innerHeight });
+        }
       }
       if (msg.type === 'ping') {
         setPairedConnected(true);
