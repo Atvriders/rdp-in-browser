@@ -242,20 +242,6 @@ export default function RDPSession({
     window.addEventListener('mouseup',   onUp);
   }, [session, onUpdate]);
 
-  const toggleMaximize = () => {
-    if (session.isMaximized) {
-      onUpdate({ isMaximized: false, ...(session.prevBounds ?? {}) });
-    } else {
-      onUpdate({
-        isMaximized: true,
-        prevBounds: { top: session.top, left: session.left, width: session.width, height: session.height },
-        top: 0, left: 0,
-        width: window.innerWidth,
-        height: window.innerHeight,
-      });
-    }
-  };
-
   const style = session.isMaximized
     ? { top: 0, left: 0, width: '100%', height: '100%', zIndex: focused ? 9999 : 100 }
     : { top: session.top, left: session.left, width: session.width, height: session.height, zIndex: focused ? 200 : 100 };
