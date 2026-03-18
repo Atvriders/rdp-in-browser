@@ -274,8 +274,7 @@ export default function RDPSession({
           {status === 'disconnected' && <span className="rdp-status disconnected"> — Disconnected</span>}
         </span>
         <div className="rdp-titlebar-btns">
-          <button className="rdp-btn maximize" title="Maximize/Restore" onClick={toggleMaximize}>{session.isMaximized ? '❐' : '□'}</button>
-          <button className="rdp-btn close"    title="Close"            onClick={onClose}>✕</button>
+          <button className="rdp-btn close" title="Close" onClick={onClose}>✕</button>
         </div>
       </div>
 
