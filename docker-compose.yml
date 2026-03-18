@@ -1,11 +1,17 @@
 services:
   guacd:
-    image: guacamole/guacd:1.5.0
+    image: ghcr.io/atvriders/rdp-in-browser-guacd:master
+    build: ./guacd
     restart: unless-stopped
     ports:
       - "4822:4822"
     environment:
       - GUACD_LOG_LEVEL=debug
+      # Per-monitor pixel dimensions for the virtual dual-monitor X11 display.
+      # Set these to match your actual browser window size for a pixel-perfect
+      # 1:1 mapping (no scaling blur). Defaults: 1920x1080.
+      - MON_W=1920
+      - MON_H=1080
 
   server:
     image: ghcr.io/atvriders/rdp-in-browser-server:master
