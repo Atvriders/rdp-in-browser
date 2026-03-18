@@ -74,7 +74,11 @@ export default function RDPSession({
 
     client.onstatechange = (state: number) => {
       // 3 = CONNECTED, 5 = DISCONNECTED
-      if (state === 3) setStatus('connected');
+      if (state === 3) {
+        setStatus('connected');
+        // Send display size so guacd starts streaming the framebuffer
+        client.sendSize(session.params.width, session.params.height);
+      }
       if (state === 5) setStatus('disconnected');
     };
     client.onerror = (s: Guacamole.Status) => {
