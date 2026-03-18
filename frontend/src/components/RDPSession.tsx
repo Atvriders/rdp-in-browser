@@ -20,8 +20,12 @@ export default function RDPSession({
   const displayRef  = useRef<HTMLDivElement>(null);
   const clientRef   = useRef<Guacamole.Client | null>(null);
   const rdpReadyRef = useRef(false);
+  const focusedRef  = useRef(focused);
   const [status, setStatus]   = useState<'connecting' | 'connected' | 'error' | 'disconnected'>('connecting');
   const [errMsg, setErrMsg]   = useState('');
+
+  // Keep focusedRef in sync so the keyboard closure always sees the current value
+  useEffect(() => { focusedRef.current = focused; }, [focused]);
 
   // Drag state
   const dragRef = useRef({ active: false, startX: 0, startY: 0, startLeft: 0, startTop: 0 });
@@ -59,23 +63,32 @@ export default function RDPSession({
     // Keyboard (only when this session is focused)
     const keyboard = new Guacamole.Keyboard(document);
     keyboard.onkeydown = (keysym: number) => {
-      if (focused) client.sendKeyEvent(1, keysym);
+      if (focusedRef.current) client.sendKeyEvent(1, keysym);
     };
     keyboard.onkeyup = (keysym: number) => {
-      if (focused) client.sendKeyEvent(0, keysym);
+      if (focusedRef.current) client.sendKeyEvent(0, keysym);
     };
 
     // Intercept tunnel state changes
     const guacTunnelStateChange = tunnel.onstatechange;
     tunnel.onstatechange = (state: Guacamole.Tunnel.State) => {
       guacTunnelStateChange?.call(tunnel, state);
-      if (state === Guacamole.Tunnel.State.OPEN)   setStatus('connected');
-      if (state === Guacamole.Tunnel.State.CLOSED)  setStatus('disconnected');
+      if (state === Guacamole.Tunnel.State.OPEN) {
+        setStatus('connected');
+        // guacamole-lite does not forward the `ready` instruction to the browser,
+        // so client state 3 (CONNECTED) never fires. Enable input as soon as
+        // the WebSocket tunnel is open instead.
+        rdpReadyRef.current = true;
+      }
+      if (state === Guacamole.Tunnel.State.CLOSED) {
+        rdpReadyRef.current = false;
+        setStatus('disconnected');
+      }
     };
 
     client.onstatechange = (state: number) => {
       console.log('[RDP] client state:', state);
-      if (state === 3) rdpReadyRef.current = true;   // CONNECTED — FreeRDP fully up
+      if (state === 3) rdpReadyRef.current = true;
       if (state === 5) { rdpReadyRef.current = false; setStatus('disconnected'); }
     };
     client.onerror = (s: Guacamole.Status) => {
