@@ -216,7 +216,7 @@ export default function RDPSession({
   };
 
   const style = session.isMaximized
-    ? { top: 0, left: 0, width: '100vw', height: '100vh', zIndex: focused ? 9999 : 100 }
+    ? { top: 0, left: 0, width: '100%', height: '100%', zIndex: focused ? 9999 : 100 }
     : { top: session.top, left: session.left, width: session.width, height: session.height, zIndex: focused ? 200 : 100 };
 
   if (session.isMinimized) return null;
