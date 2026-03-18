@@ -65,6 +65,7 @@ export class GuacdClient extends EventEmitter {
     this.socket.connect(port, host);
 
     this.socket.on('data', (data: string) => {
+      console.log(`[guacd raw] ${data.substring(0, 200)}`);
       this.buffer += data;
       let end: number;
       while ((end = this.buffer.indexOf(';')) !== -1) {
@@ -74,8 +75,14 @@ export class GuacdClient extends EventEmitter {
       }
     });
 
-    this.socket.on('close', () => this.emit('close'));
-    this.socket.on('error', (err) => this.emit('error', err));
+    this.socket.on('close', (hadError) => {
+      console.log(`[guacd] socket closed, hadError=${hadError}`);
+      this.emit('close');
+    });
+    this.socket.on('error', (err) => {
+      console.log(`[guacd] socket error: ${err.message}`);
+      this.emit('error', err);
+    });
   }
 
   /** Perform SELECT → ARGS → CONNECT → READY handshake.
@@ -97,7 +104,9 @@ export class GuacdClient extends EventEmitter {
 
         // Step 3: CONNECT with param values in the order guacd requested
         const argNames = parts.slice(1);
+        console.log('[guacd] args requested:', argNames);
         const values = argNames.map(a => paramValue(a, params));
+        console.log('[guacd] connect values:', argNames.map((a, i) => `${a}=${values[i]}`).join(', '));
         this.socket.write(encode('connect', values));
 
         // Step 4: Wait for READY (or ERROR)

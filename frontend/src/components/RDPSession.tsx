@@ -64,18 +64,11 @@ export default function RDPSession({
       if (focused) client.sendKeyEvent(0, keysym);
     };
 
-    // Intercept tunnel state — OPEN means the WS bridge is up and guacd handshake completed
+    // Intercept tunnel state changes
     const guacTunnelStateChange = tunnel.onstatechange;
     tunnel.onstatechange = (state: Guacamole.Tunnel.State) => {
       guacTunnelStateChange?.call(tunnel, state);
-      if (state === Guacamole.Tunnel.State.OPEN) {
-        setStatus('connected');
-        // Send size directly through tunnel — client.sendSize() requires CONNECTED
-        // state which may not be set yet. Sending here ensures guacd gets the
-        // resolution immediately and starts streaming the framebuffer.
-        tunnel.sendMessage('size', session.params.width, session.params.height);
-        console.log('[RDP] sent size', session.params.width, session.params.height);
-      }
+      if (state === Guacamole.Tunnel.State.OPEN)   setStatus('connected');
       if (state === Guacamole.Tunnel.State.CLOSED)  setStatus('disconnected');
     };
 
@@ -88,11 +81,19 @@ export default function RDPSession({
       setErrMsg(s.message ?? 'Connection failed');
     };
 
-    // Now that RDPTunnel assigns connect/sendMessage/disconnect as instance
-    // properties in its constructor, client.connect() correctly calls our
-    // _connect() and the Guacamole.Client state machine runs normally
-    // (sends size, audio, etc. so guacd knows to start streaming).
     client.connect('');
+
+    // Intercept tunnel.oninstruction AFTER client.connect() (which sets it up).
+    // When we receive the 'ready' instruction, the server's ws.on('message') is
+    // already registered, so sending size here guarantees guacd receives it.
+    const origOnInstruction = tunnel.oninstruction;
+    tunnel.oninstruction = (opcode: string, params: string[]) => {
+      origOnInstruction?.call(tunnel, opcode, params);
+      if (opcode === 'ready') {
+        console.log('[RDP] received ready, sending size', session.params.width, session.params.height);
+        tunnel.sendMessage('size', session.params.width, session.params.height);
+      }
+    };
 
     return () => {
       keyboard.onkeydown = null;
