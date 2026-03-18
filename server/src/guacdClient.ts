@@ -122,6 +122,12 @@ export class GuacdClient extends EventEmitter {
           if (p2[0] === 'ready') {
             this.removeListener('instruction', onReady);
             clearTimeout(timeout);
+            // In Guacamole 1.5.0 protocol, client MUST send `size` as the first
+            // instruction after READY before guacd will start FreeRDP.
+            // This initial size sets user->info; it does NOT trigger resize-method.
+            const sizeInstr = encode('size', [String(params.width), String(params.height), '96']);
+            console.log('[guacd] sending size:', sizeInstr);
+            this.socket.write(sizeInstr);
             // Register bridge listener BEFORE resolving to avoid race condition
             // where guacd emits instructions before .then() runs
             this.on('instruction', onBridge);
