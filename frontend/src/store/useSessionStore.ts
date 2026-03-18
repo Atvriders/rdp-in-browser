@@ -45,12 +45,12 @@ export const useSessionStore = create<SessionStore>((set) => ({
     const session: RDPSession = {
       id,
       params,
-      top:  60 + (idCounter % 5) * 30,
-      left: 60 + (idCounter % 5) * 30,
-      width:  Math.min(1280, window.innerWidth  - 80),
-      height: Math.min(800,  window.innerHeight - 120),
+      top:  0,
+      left: 0,
+      width:  window.innerWidth,
+      height: window.innerHeight,
       isMinimized: false,
-      isMaximized: false,
+      isMaximized: true,
       display: useSessionStore.getState().myDisplay,
     };
     set((s) => ({ sessions: [...s.sessions, session] }));

@@ -1,13 +1,15 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import Guacamole from 'guacamole-common-js';
 import { RDPTunnel } from '../lib/tunnel';
-import type { RDPSession as Session } from '../types';
+import { getChannel, send } from '../lib/displayChannel';
+import type { RDPSession as Session, ChannelMsg } from '../types';
 import './RDPSession.css';
 
 interface Props {
   session: Session;
   focused: boolean;
   draggingOut?: boolean;
+  extendedMode?: boolean;
   onFocus: () => void;
   onClose: () => void;
   onUpdate: (patch: Partial<Session>) => void;
@@ -15,32 +17,33 @@ interface Props {
 }
 
 export default function RDPSession({
-  session, focused, draggingOut, onFocus, onClose, onUpdate, onDragToOtherDisplay,
+  session, focused, draggingOut, extendedMode, onFocus, onClose, onUpdate, onDragToOtherDisplay,
 }: Props) {
   const displayRef  = useRef<HTMLDivElement>(null);
   const clientRef   = useRef<Guacamole.Client | null>(null);
   const rdpReadyRef = useRef(false);
   const focusedRef  = useRef(focused);
   const scaleRef    = useRef(1);
+  const extendedModeRef = useRef(extendedMode ?? false);
   const [status, setStatus]   = useState<'connecting' | 'connected' | 'error' | 'disconnected'>('connecting');
   const [errMsg, setErrMsg]   = useState('');
 
-  // Keep focusedRef in sync so the keyboard closure always sees the current value
+  // Keep refs in sync so closures always see current values
   useEffect(() => { focusedRef.current = focused; }, [focused]);
-
-  // Drag state
-  const dragRef = useRef({ active: false, startX: 0, startY: 0, startLeft: 0, startTop: 0 });
-  // Resize state
-  const resizeRef = useRef({ active: false, edge: '', startX: 0, startY: 0, startW: 0, startH: 0, startL: 0, startT: 0 });
+  extendedModeRef.current = extendedMode ?? false;
 
   // ── Guacamole connection ───────────────────────────────────────────────────
   useEffect(() => {
-    console.log('[RDP] useEffect, displayRef:', !!displayRef.current, 'host:', session.params.host);
     if (!displayRef.current) return;
     setStatus('connecting');
     setErrMsg('');
 
-    const tunnel = new RDPTunnel(window.location.href, session.params);
+    // In extended mode, double the width so Windows sees a combined display.
+    const tunnelParams = extendedModeRef.current
+      ? { ...session.params, width: session.params.width * 2 }
+      : session.params;
+
+    const tunnel = new RDPTunnel(window.location.href, tunnelParams);
     const client = new Guacamole.Client(tunnel);
     clientRef.current = client;
 
@@ -51,25 +54,34 @@ export default function RDPSession({
     el.style.left = '0';
     displayRef.current.appendChild(el);
 
-    // Scale the display to fit the container, centered, whenever either resizes
+    // Scale the display to fit the container.
+    // Extended mode: fit height only (right half overflows and is clipped).
+    // Normal mode: fit both dimensions, centered.
     const scaleDisplay = () => {
       const container = displayRef.current;
       if (!container) return;
       const dw = display.getWidth();
       const dh = display.getHeight();
       if (!dw || !dh) return;
-      const scale = Math.min(container.clientWidth / dw, container.clientHeight / dh);
+      const isExtended = extendedModeRef.current;
+      const scale = isExtended
+        ? container.clientHeight / dh
+        : Math.min(container.clientWidth / dw, container.clientHeight / dh);
       scaleRef.current = scale;
       display.scale(scale);
-      // Center within the container
-      el.style.left = Math.max(0, (container.clientWidth  - dw * scale) / 2) + 'px';
-      el.style.top  = Math.max(0, (container.clientHeight - dh * scale) / 2) + 'px';
+      if (isExtended) {
+        el.style.left = '0';
+        el.style.top  = '0';
+      } else {
+        el.style.left = Math.max(0, (container.clientWidth  - dw * scale) / 2) + 'px';
+        el.style.top  = Math.max(0, (container.clientHeight - dh * scale) / 2) + 'px';
+      }
     };
     display.onresize = scaleDisplay;
     const ro = new ResizeObserver(scaleDisplay);
     ro.observe(displayRef.current);
 
-    // Mouse — scale coordinates back to display space (display is CSS-scaled)
+    // Mouse — scale coordinates back to display space
     const mouse = new Guacamole.Mouse(el);
     const sendMouse = (state: Guacamole.Mouse.State) => {
       if (!rdpReadyRef.current) return;
@@ -97,15 +109,39 @@ export default function RDPSession({
       if (focusedRef.current) client.sendKeyEvent(0, keysym);
     };
 
+    // Extended mode: forward all Guacamole data to secondary window,
+    // and accept mouse/keyboard inputs forwarded from secondary.
+    let cleanupExtended: (() => void) | undefined;
+    if (extendedModeRef.current) {
+      tunnel.onrawdata = (raw) => {
+        send({ type: 'guac-data', data: raw });
+      };
+
+      const ch = getChannel();
+      const handleSecondaryInput = (e: MessageEvent<ChannelMsg>) => {
+        const msg = e.data;
+        if (msg.type === 'secondary-mouse') {
+          if (!rdpReadyRef.current) return;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const state = new (Guacamole.Mouse.State as any)(
+            msg.x, msg.y, msg.left, msg.middle, msg.right, msg.up, msg.down,
+          );
+          client.sendMouseState(state);
+        }
+        if (msg.type === 'secondary-key') {
+          client.sendKeyEvent(msg.pressed ? 1 : 0, msg.keysym);
+        }
+      };
+      ch.addEventListener('message', handleSecondaryInput);
+      cleanupExtended = () => ch.removeEventListener('message', handleSecondaryInput);
+    }
+
     // Intercept tunnel state changes
     const guacTunnelStateChange = tunnel.onstatechange;
     tunnel.onstatechange = (state: Guacamole.Tunnel.State) => {
       guacTunnelStateChange?.call(tunnel, state);
       if (state === Guacamole.Tunnel.State.OPEN) {
         setStatus('connected');
-        // guacamole-lite does not forward the `ready` instruction to the browser,
-        // so client state 3 (CONNECTED) never fires. Enable input as soon as
-        // the WebSocket tunnel is open instead.
         rdpReadyRef.current = true;
       }
       if (state === Guacamole.Tunnel.State.CLOSED) {
@@ -115,7 +151,6 @@ export default function RDPSession({
     };
 
     client.onstatechange = (state: number) => {
-      console.log('[RDP] client state:', state);
       if (state === 3) rdpReadyRef.current = true;
       if (state === 5) { rdpReadyRef.current = false; setStatus('disconnected'); }
     };
@@ -127,6 +162,7 @@ export default function RDPSession({
     client.connect('');
 
     return () => {
+      cleanupExtended?.();
       rdpReadyRef.current = false;
       keyboard.onkeydown = null;
       keyboard.onkeyup   = null;
@@ -136,8 +172,9 @@ export default function RDPSession({
         displayRef.current.removeChild(el);
       }
     };
+  // Reconnect when session ID changes OR when extended mode toggles
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.id]);
+  }, [session.id, extendedMode]);
 
   // ── Title-bar drag ─────────────────────────────────────────────────────────
   const onTitleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -153,7 +190,6 @@ export default function RDPSession({
       const newLeft = dragRef.current.startLeft + dx;
       const newTop  = dragRef.current.startTop  + dy;
 
-      // Check if dragging past screen edge → send to other display
       if (newLeft < -session.width * 0.4 || newLeft > window.innerWidth - session.width * 0.6) {
         dragRef.current.active = false;
         onDragToOtherDisplay({ ...session, left: newLeft, top: newTop }, ev);
@@ -169,6 +205,11 @@ export default function RDPSession({
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup',   onUp);
   }, [session, onFocus, onUpdate, onDragToOtherDisplay]);
+
+  // Drag state
+  const dragRef = useRef({ active: false, startX: 0, startY: 0, startLeft: 0, startTop: 0 });
+  // Resize state
+  const resizeRef = useRef({ active: false, edge: '', startX: 0, startY: 0, startW: 0, startH: 0, startL: 0, startT: 0 });
 
   // ── Resize handles ─────────────────────────────────────────────────────────
   const onResizeMouseDown = useCallback((edge: string) => (e: React.MouseEvent) => {
@@ -233,9 +274,8 @@ export default function RDPSession({
           {status === 'disconnected' && <span className="rdp-status disconnected"> — Disconnected</span>}
         </span>
         <div className="rdp-titlebar-btns">
-          <button className="rdp-btn minimize" title="Minimize" onClick={() => onUpdate({ isMinimized: true })}>─</button>
-          <button className="rdp-btn maximize" title="Maximize" onClick={toggleMaximize}>{session.isMaximized ? '❐' : '□'}</button>
-          <button className="rdp-btn close"    title="Close"    onClick={onClose}>✕</button>
+          <button className="rdp-btn maximize" title="Maximize/Restore" onClick={toggleMaximize}>{session.isMaximized ? '❐' : '□'}</button>
+          <button className="rdp-btn close"    title="Close"            onClick={onClose}>✕</button>
         </div>
       </div>
 
@@ -254,7 +294,6 @@ export default function RDPSession({
             <button className="rdp-reconnect" onClick={() => {
               clientRef.current?.disconnect();
               setStatus('connecting');
-              // re-mount will reconnect
             }}>Reconnect</button>
           </div>
         )}

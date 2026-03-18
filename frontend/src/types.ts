@@ -57,4 +57,9 @@ export type ChannelMsg =
       winTop: number;
       entryEdge: 'left' | 'right' }
   | { type: 'window-drag-cancel' }
-  | { type: 'move-window'; session: RDPSession };
+  | { type: 'move-window'; session: RDPSession }
+  // Extended dual-monitor messages
+  | { type: 'extend-display'; primaryWidth: number; totalHeight: number }
+  | { type: 'guac-data'; data: string }
+  | { type: 'secondary-mouse'; x: number; y: number; left: boolean; middle: boolean; right: boolean; up: boolean; down: boolean }
+  | { type: 'secondary-key'; keysym: number; pressed: boolean };
