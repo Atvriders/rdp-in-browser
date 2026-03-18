@@ -1,7 +1,6 @@
 services:
   guacd:
     image: ghcr.io/atvriders/rdp-in-browser-guacd:master
-    build: ./guacd
     restart: unless-stopped
     ports:
       - "4822:4822"
