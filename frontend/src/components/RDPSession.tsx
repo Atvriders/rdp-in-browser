@@ -83,18 +83,6 @@ export default function RDPSession({
 
     client.connect('');
 
-    // Intercept tunnel.oninstruction AFTER client.connect() (which sets it up).
-    // When we receive the 'ready' instruction, the server's ws.on('message') is
-    // already registered, so sending size here guarantees guacd receives it.
-    const origOnInstruction = tunnel.oninstruction;
-    tunnel.oninstruction = (opcode: string, params: unknown[]) => {
-      origOnInstruction?.call(tunnel, opcode, params);
-      if (opcode === 'ready') {
-        console.log('[RDP] received ready, sending size', session.params.width, session.params.height);
-        tunnel.sendMessage('size', session.params.width, session.params.height);
-      }
-    };
-
     return () => {
       keyboard.onkeydown = null;
       keyboard.onkeyup   = null;

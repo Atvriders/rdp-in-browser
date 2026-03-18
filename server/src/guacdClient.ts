@@ -48,7 +48,6 @@ function paramValue(arg: string, p: RDPParams): string {
     'disable-bitmap-caching':     'false',
     'disable-offscreen-caching':  'false',
     'disable-glyph-caching':      'false',
-    'resize-method':              'display-update',
   };
   return m[arg] ?? '';
 }
