@@ -26,9 +26,6 @@ function parseInstruction(raw: string): string[] {
 
 // Map guacd arg names → RDP param values
 function paramValue(arg: string, p: RDPParams): string {
-  // Version negotiation: echo back any VERSION_* arg guacd advertises
-  if (/^VERSION_/.test(arg)) return arg;
-
   const m: Record<string, string> = {
     hostname:                     p.host,
     port:                         String(p.port),
