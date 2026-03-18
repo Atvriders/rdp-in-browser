@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { RDPSession, ConnectParams } from '../types';
+import type { RDPSession, ConnectParams, PhantomInfo } from '../types';
 
 let idCounter = 0;
 
@@ -8,12 +8,15 @@ interface SessionStore {
   myDisplay: string;
   pairedDisplay: string | null;
   pairedConnected: boolean;
-  phantomSession: RDPSession | null;
+  pairedScreenX: number | null;
+  phantom: PhantomInfo | null;
 
   setMyDisplay: (d: string) => void;
   setPairedDisplay: (d: string | null) => void;
   setPairedConnected: (v: boolean) => void;
-  setPhantomSession: (s: RDPSession | null) => void;
+  setPairedScreenX: (x: number | null) => void;
+  setPhantom: (p: PhantomInfo | null) => void;
+  updatePhantomPos: (overlapPx: number, winTop: number, entryEdge: 'left' | 'right') => void;
 
   openSession: (params: ConnectParams) => void;
   closeSession: (id: string) => void;
@@ -26,22 +29,26 @@ export const useSessionStore = create<SessionStore>((set) => ({
   myDisplay: 'primary',
   pairedDisplay: null,
   pairedConnected: false,
-  phantomSession: null,
+  pairedScreenX: null,
+  phantom: null,
 
   setMyDisplay: (d) => set({ myDisplay: d }),
   setPairedDisplay: (d) => set({ pairedDisplay: d }),
   setPairedConnected: (v) => set({ pairedConnected: v }),
-  setPhantomSession: (s) => set({ phantomSession: s }),
+  setPairedScreenX: (x) => set({ pairedScreenX: x }),
+  setPhantom: (p) => set({ phantom: p }),
+  updatePhantomPos: (overlapPx, winTop, entryEdge) =>
+    set((s) => s.phantom ? { phantom: { ...s.phantom, overlapPx, winTop, entryEdge } } : {}),
 
   openSession: (params) => {
     const id = `session-${++idCounter}`;
     const session: RDPSession = {
       id,
       params,
-      top: 60 + (idCounter % 5) * 30,
+      top:  60 + (idCounter % 5) * 30,
       left: 60 + (idCounter % 5) * 30,
-      width: Math.min(1280, window.innerWidth - 80),
-      height: Math.min(800, window.innerHeight - 120),
+      width:  Math.min(1280, window.innerWidth  - 80),
+      height: Math.min(800,  window.innerHeight - 120),
       isMinimized: false,
       isMaximized: false,
       display: useSessionStore.getState().myDisplay,
@@ -58,7 +65,9 @@ export const useSessionStore = create<SessionStore>((set) => ({
     })),
 
   adoptSession: (session) =>
-    set((s) => ({
-      sessions: [...s.sessions, { ...session, display: s.myDisplay }],
-    })),
+    set((s) => {
+      // Don't duplicate if already present
+      if (s.sessions.find((x) => x.id === session.id)) return {};
+      return { sessions: [...s.sessions, { ...session, display: s.myDisplay }] };
+    }),
 }));

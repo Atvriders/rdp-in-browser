@@ -6,6 +6,7 @@ services:
       - "4822:4822"
 
   server:
+    image: ghcr.io/atvriders/rdp-in-browser-server:master
     build:
       context: ./server
     restart: unless-stopped
@@ -19,6 +20,7 @@ services:
       - guacd
 
   frontend:
+    image: ghcr.io/atvriders/rdp-in-browser-frontend:master
     build:
       context: ./frontend
     restart: unless-stopped

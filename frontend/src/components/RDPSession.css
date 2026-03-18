@@ -13,6 +13,12 @@
   border-color: #388bfd;
   box-shadow: 0 12px 40px rgba(56,139,253,0.25);
 }
+.rdp-session.dragging-out {
+  opacity: 0.45;
+  border-color: #388bfd;
+  border-style: dashed;
+  pointer-events: none;
+}
 
 /* Title bar */
 .rdp-titlebar {

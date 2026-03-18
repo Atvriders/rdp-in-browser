@@ -2,13 +2,15 @@
 
 Real RDP client running entirely in the browser, powered by Apache Guacamole.
 
+[![Build & Publish Docker Images](https://github.com/Atvriders/rdp-in-browser/actions/workflows/docker.yml/badge.svg)](https://github.com/Atvriders/rdp-in-browser/actions/workflows/docker.yml)
+
 ## Features
 
-- **Real RDP** — connects to actual Windows/Linux desktops via RDP protocol (FreeRDP under the hood)
-- **Dual monitor support** — open two browser windows on separate monitors; drag RDP sessions between them
+- **Real RDP** — connects to actual Windows/Linux desktops via RDP (FreeRDP under the hood)
+- **Dual monitor support** — open two browser windows on separate monitors; drag RDP sessions between them by pushing a window past the screen edge
 - **Multiple sessions** — manage multiple connections from a taskbar
-- **Draggable & resizable windows** — floating window UI with full resize handles
-- **Saved connections** — remembers recent connections in localStorage
+- **Draggable & resizable windows** — floating window UI with full 8-direction resize handles
+- **Saved connections** — recent connections persisted to localStorage
 
 ## Architecture
 
@@ -20,49 +22,75 @@ Browser (React)
                      └── RDP target machine
 ```
 
-- **Frontend**: React + TypeScript + Vite, `guacamole-common-js` for the Guacamole protocol client
-- **Server**: Node.js + TypeScript, bridges WebSocket connections from the browser to the guacd TCP socket
-- **guacd**: Official Apache Guacamole daemon (`guacamole/guacd` Docker image) — handles RDP via FreeRDP
+| Component | Tech |
+|-----------|------|
+| Frontend | React + TypeScript + Vite, `guacamole-common-js` |
+| Server   | Node.js + TypeScript WebSocket → guacd bridge |
+| Protocol | Apache Guacamole over TCP + WebSocket |
+| Dual-monitor | BroadcastChannel API (cross-window) |
 
-## Quick Start
+## Quick Start (Docker)
 
 ```bash
 docker compose up
 ```
 
-Then open `http://localhost:5173` in your browser.
+Open `http://localhost:5173` in your browser.
 
-**Dual monitor:** Open the same URL in a second browser window and move it to your second monitor. The two windows will automatically detect each other and enable cross-window session dragging.
+### Pre-built images (GitHub Packages)
+
+Images are published to GitHub Container Registry on every push to `master`:
+
+```
+ghcr.io/atvriders/rdp-in-browser-server:master
+ghcr.io/atvriders/rdp-in-browser-frontend:master
+```
+
+Pull them manually:
+```bash
+docker pull ghcr.io/atvriders/rdp-in-browser-server:master
+docker pull ghcr.io/atvriders/rdp-in-browser-frontend:master
+```
+
+## Dual Monitor Setup
+
+1. Open `http://localhost:5173` in two browser windows
+2. Move each window to a different physical monitor
+3. The taskbar shows **🖥️🖥️ Dual** when the two windows detect each other
+4. Drag an RDP session's title bar past the screen edge — it transfers to the other window
+
+The windows automatically re-pair within 2 seconds if you move them between monitors.
 
 ## Connecting to a Machine
 
 1. Click **＋ New RDP** in the taskbar
-2. Enter the hostname/IP, port (default 3389), username, and password
+2. Enter hostname/IP, port (default 3389), username, and password
 3. Click **Connect**
 
 ### Advanced options
 
-- **Resolution** — custom width × height
-- **Color depth** — 8 / 16 / 24 / 32-bit
-- **Security** — any / nla / tls / rdp
+| Option | Description |
+|--------|-------------|
+| Resolution | Custom width × height |
+| Color depth | 8 / 16 / 24 / 32-bit |
+| Security | any / nla / tls / rdp |
+| Ignore cert | Skip TLS certificate validation |
 
 ## Requirements
 
 - Docker + Docker Compose
-- RDP-enabled target machine (Windows Remote Desktop, xrdp on Linux, etc.)
-- The guacd container must be able to reach the RDP target on port 3389
+- RDP-enabled target (Windows Remote Desktop, xrdp on Linux, etc.)
+- The guacd container must reach the RDP host on port 3389
 
 ## Development
 
 ```bash
+# Start guacd
+docker run -d -p 4822:4822 guacamole/guacd
+
 # Server (port 3001)
 cd server && npm install && npm run dev
 
 # Frontend (port 5173, proxies /ws → server)
 cd frontend && npm install && npm run dev
-```
-
-Requires a running `guacd` instance:
-```bash
-docker run -d -p 4822:4822 guacamole/guacd
 ```

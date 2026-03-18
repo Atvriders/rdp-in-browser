@@ -7,6 +7,7 @@ import './RDPSession.css';
 interface Props {
   session: Session;
   focused: boolean;
+  draggingOut?: boolean;
   onFocus: () => void;
   onClose: () => void;
   onUpdate: (patch: Partial<Session>) => void;
@@ -14,7 +15,7 @@ interface Props {
 }
 
 export default function RDPSession({
-  session, focused, onFocus, onClose, onUpdate, onDragToOtherDisplay,
+  session, focused, draggingOut, onFocus, onClose, onUpdate, onDragToOtherDisplay,
 }: Props) {
   const displayRef  = useRef<HTMLDivElement>(null);
   const clientRef   = useRef<Guacamole.Client | null>(null);
@@ -167,7 +168,7 @@ export default function RDPSession({
   if (session.isMinimized) return null;
 
   return (
-    <div className={`rdp-session ${focused ? 'focused' : ''}`} style={style} onMouseDown={onFocus}>
+    <div className={`rdp-session ${focused ? 'focused' : ''} ${draggingOut ? 'dragging-out' : ''}`} style={style} onMouseDown={onFocus}>
       {/* Title bar */}
       <div className="rdp-titlebar" onMouseDown={onTitleMouseDown}>
         <span className="rdp-titlebar-icon">🖥️</span>

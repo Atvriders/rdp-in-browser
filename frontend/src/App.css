@@ -98,25 +98,34 @@ body {
 /* ── Phantom (ghost) window ── */
 .phantom-window {
   position: absolute;
-  right: 0;
   background: rgba(31,111,235,0.08);
   border: 2px dashed #388bfd;
   border-radius: 6px;
   pointer-events: none;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  opacity: 0.7;
+  overflow: visible;
+  opacity: 0.75;
+  transition: left 0.04s linear, top 0.04s linear;
 }
 .phantom-titlebar {
   height: 36px;
-  background: rgba(31,111,235,0.15);
+  background: rgba(31,111,235,0.18);
   border-bottom: 1px solid rgba(56,139,253,0.3);
+  border-radius: 4px 4px 0 0;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 12px;
   font-size: 13px;
   color: #388bfd;
+  white-space: nowrap;
+}
+.phantom-hint {
+  font-size: 11px;
+  color: #58a6ff;
+  opacity: 0.7;
+  margin-left: 12px;
 }
 
 /* ── Modal ── */

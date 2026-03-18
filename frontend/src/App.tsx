@@ -2,52 +2,85 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSessionStore } from './store/useSessionStore';
 import {
   getChannel, announce, ping, pong, disconnect as sendDisconnect,
-  sendDragging, cancelDrag, moveWindow,
+  sendDragging, updatePhantom, cancelDrag, moveWindow,
 } from './lib/displayChannel';
 import ConnectForm from './components/ConnectForm';
 import RDPSession from './components/RDPSession';
 import type { ConnectParams, RDPSession as Session, ChannelMsg } from './types';
 
-// Determine which display this window is — left/right based on screen coords
-function detectDisplay(): string {
-  return window.screenX < window.screen.width / 2 ? 'primary' : 'secondary';
-}
-
 export default function App() {
   const {
-    sessions, myDisplay, pairedConnected, pairedDisplay, phantomSession,
-    setMyDisplay, setPairedDisplay, setPairedConnected, setPhantomSession,
+    sessions, myDisplay, pairedConnected, pairedDisplay, pairedScreenX, phantom,
+    setMyDisplay, setPairedDisplay, setPairedConnected, setPairedScreenX,
+    setPhantom, updatePhantomPos,
     openSession, closeSession, updateSession, adoptSession,
   } = useSessionStore();
 
-  const [focusedId, setFocusedId] = useState<string | null>(null);
-  const [showForm, setShowForm]   = useState(true);
-  const [minimized, setMinimized] = useState<string[]>([]);
+  const [focusedId, setFocusedId]   = useState<string | null>(null);
+  const [showForm, setShowForm]     = useState(true);
+  const [minimized, setMinimized]   = useState<string[]>([]);
+  // Which session is currently mid-flight to the other display (dims it)
+  const [draggingOutId, setDraggingOutId] = useState<string | null>(null);
 
-  // ── Display detection + BroadcastChannel ──────────────────────────────────
+  const myDisplayRef = useRef(myDisplay);
+  myDisplayRef.current = myDisplay;
+
+  // ── BroadcastChannel + display detection ──────────────────────────────────
   useEffect(() => {
-    const d = detectDisplay();
-    setMyDisplay(d);
+    // Detect which side of the dual-screen setup this window is on
+    const detect = () => {
+      const d = window.screenX < window.screen.width / 2 ? 'primary' : 'secondary';
+      setMyDisplay(d);
+      return d;
+    };
 
+    const d = detect();
     const ch = getChannel();
     announce(d);
 
-    const heartbeat = setInterval(() => ping(d), 8000);
+    // Re-announce if the window moves to the other monitor
+    const positionPoll = setInterval(() => {
+      const newD = detect();
+      if (newD !== myDisplayRef.current) announce(newD);
+    }, 2000);
+
+    const heartbeat = setInterval(() => ping(myDisplayRef.current), 8000);
 
     const handler = (e: MessageEvent<ChannelMsg>) => {
       const msg = e.data;
-      if (msg.type === 'announce') { setPairedConnected(true); setPairedDisplay(msg.display); pong(d); }
-      if (msg.type === 'ping')     { setPairedConnected(true); setPairedDisplay(msg.display); pong(d); }
-      if (msg.type === 'pong')     { setPairedConnected(true); setPairedDisplay(msg.display); }
-      if (msg.type === 'disconnect') { setPairedConnected(false); setPairedDisplay(null); }
+      if (msg.type === 'announce') {
+        setPairedConnected(true);
+        setPairedDisplay(msg.display);
+        setPairedScreenX(msg.screenX);
+        pong(myDisplayRef.current);
+      }
+      if (msg.type === 'ping') {
+        setPairedConnected(true);
+        setPairedDisplay(msg.display);
+        setPairedScreenX(msg.screenX);
+        pong(myDisplayRef.current);
+      }
+      if (msg.type === 'pong') {
+        setPairedConnected(true);
+        setPairedDisplay(msg.display);
+        setPairedScreenX(msg.screenX);
+      }
+      if (msg.type === 'disconnect') {
+        setPairedConnected(false);
+        setPairedDisplay(null);
+        setPairedScreenX(null);
+      }
       if (msg.type === 'window-dragging') {
-        setPhantomSession(msg.session);
+        setPhantom({ session: msg.session, overlapPx: msg.overlapPx, winTop: msg.winTop, entryEdge: msg.entryEdge });
+      }
+      if (msg.type === 'update-phantom') {
+        updatePhantomPos(msg.overlapPx, msg.winTop, msg.entryEdge);
       }
       if (msg.type === 'window-drag-cancel') {
-        setPhantomSession(null);
+        setPhantom(null);
       }
       if (msg.type === 'move-window') {
-        setPhantomSession(null);
+        setPhantom(null);
         adoptSession(msg.session);
         setFocusedId(msg.session.id);
       }
@@ -59,41 +92,99 @@ export default function App() {
     return () => {
       ch.removeEventListener('message', handler);
       clearInterval(heartbeat);
+      clearInterval(positionPoll);
     };
-  }, [setMyDisplay, setPairedDisplay, setPairedConnected, setPhantomSession, adoptSession]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Drag to other display ─────────────────────────────────────────────────
   const handleDragToOther = useCallback((session: Session, ev: MouseEvent) => {
     if (!pairedConnected) return;
-    // Calculate how far the window has crossed the edge
-    const overlapPx  = session.left < 0 ? -session.left : session.left + session.width - window.innerWidth;
-    const entryEdge  = session.left < 0 ? 'right' : 'left';
-    sendDragging(session, overlapPx, session.width, session.height, session.top, entryEdge);
 
-    // Track mouse to see if user drops it over there or brings it back
-    const onMove = (e2: MouseEvent) => {
-      const back = entryEdge === 'right'
-        ? e2.clientX > overlapPx
-        : e2.clientX < window.innerWidth - overlapPx;
-      if (back) {
+    // Only allow dragging toward the peer — don't cross the wrong edge
+    const goingRight = session.left + session.width > window.innerWidth;
+    const peerIsRight = pairedScreenX !== null && pairedScreenX > window.screenX;
+    const peerIsLeft  = pairedScreenX !== null && pairedScreenX < window.screenX;
+    if (goingRight && !peerIsRight) {
+      // Snap back — peer isn't on the right
+      updateSession(session.id, { left: window.innerWidth - session.width - 20, top: session.top });
+      return;
+    }
+    if (!goingRight && !peerIsLeft) {
+      updateSession(session.id, { left: 20, top: session.top });
+      return;
+    }
+
+    const entryEdge: 'left' | 'right' = goingRight ? 'left' : 'right';
+
+    const calcOverlap = (left: number) =>
+      goingRight ? left + session.width - window.innerWidth : -left;
+
+    let overlap = Math.max(1, calcOverlap(session.left));
+    let winTop  = session.top;
+
+    setDraggingOutId(session.id);
+    sendDragging(session, overlap, winTop, entryEdge);
+
+    const onMove = (e: MouseEvent) => {
+      const dx = e.clientX - ev.clientX;
+      const dy = e.clientY - ev.clientY;
+      const newLeft = session.left + dx;
+      const newTop  = session.top  + dy;
+
+      overlap = Math.max(1, calcOverlap(newLeft));
+      winTop  = newTop;
+
+      // Window center crossed back onto this screen → cancel the transfer
+      const centerBack = goingRight
+        ? newLeft + session.width / 2 < window.innerWidth
+        : newLeft + session.width / 2 > 0;
+
+      if (centerBack) {
         window.removeEventListener('mousemove', onMove);
-        window.removeEventListener('mouseup', onUp);
+        window.removeEventListener('mouseup',   onUp);
         cancelDrag();
-        adoptSession(session); // keep here
+        setDraggingOutId(null);
+        // Restore to a valid on-screen position
+        updateSession(session.id, {
+          left: goingRight ? window.innerWidth - session.width - 20 : 20,
+          top:  newTop,
+        });
+        return;
       }
-      void e2;
+
+      // Live-update phantom position on the peer window
+      updatePhantom(overlap, winTop, entryEdge);
     };
+
     const onUp = () => {
       window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      // Drop it on the other display
+      window.removeEventListener('mouseup',   onUp);
+      setDraggingOutId(null);
+
+      // Land near the entry edge on the target
+      const landingLeft = entryEdge === 'left' ? 20 : window.innerWidth - session.width - 20;
       closeSession(session.id);
-      moveWindow({ ...session, left: overlapPx > 0 ? 20 : window.innerWidth - session.width - 20 });
+      moveWindow({ ...session, left: landingLeft, top: winTop });
     };
+
     window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+    window.addEventListener('mouseup',   onUp);
     void ev;
-  }, [pairedConnected, closeSession, adoptSession]);
+  }, [pairedConnected, pairedScreenX, closeSession, updateSession]);
+
+  // ── Phantom position (computed from entryEdge + overlapPx) ────────────────
+  const phantomStyle = phantom ? (() => {
+    const left = phantom.entryEdge === 'left'
+      ? phantom.overlapPx - phantom.session.width   // entering from left edge
+      : window.innerWidth - phantom.overlapPx;       // entering from right edge
+    return {
+      left,
+      top:    phantom.winTop,
+      width:  phantom.session.width,
+      height: phantom.session.height,
+    };
+  })() : null;
 
   const handleConnect = (params: ConnectParams) => {
     openSession(params);
@@ -142,6 +233,7 @@ export default function App() {
             key={s.id}
             session={s}
             focused={focusedId === s.id}
+            draggingOut={draggingOutId === s.id}
             onFocus={() => setFocusedId(s.id)}
             onClose={() => { closeSession(s.id); if (focusedId === s.id) setFocusedId(null); }}
             onUpdate={(patch) => {
@@ -152,14 +244,13 @@ export default function App() {
           />
         ))}
 
-        {/* Phantom window (hovering in from other display) */}
-        {phantomSession && (
-          <div className="phantom-window" style={{
-            width: phantomSession.width,
-            height: phantomSession.height,
-            top: phantomSession.top,
-          }}>
-            <div className="phantom-titlebar">🖥️ {phantomSession.params.label || phantomSession.params.host}</div>
+        {/* Phantom window — live preview of incoming session from other display */}
+        {phantom && phantomStyle && (
+          <div className="phantom-window" style={phantomStyle}>
+            <div className="phantom-titlebar">
+              🖥️ {phantom.session.params.label || phantom.session.params.host}
+              <span className="phantom-hint">release to transfer</span>
+            </div>
           </div>
         )}
 
@@ -177,7 +268,7 @@ export default function App() {
             <div className="empty-title">No active connections</div>
             <div className="empty-sub">Click <strong>＋ New RDP</strong> to connect to a remote desktop</div>
             {pairedConnected && (
-              <div className="empty-pair">🖥️🖥️ Second monitor connected — drag sessions between windows</div>
+              <div className="empty-pair">🖥️🖥️ Second monitor connected — drag sessions past the screen edge to transfer</div>
             )}
           </div>
         )}
