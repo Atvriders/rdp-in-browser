@@ -36,10 +36,6 @@ interface ConnectBody {
   enableMenuAnimations?: boolean;
   disableBitmapCaching?: boolean;
   disableAudio?: boolean;
-  /** Enable FreeRDP multi-monitor mode (tells Windows the session spans two monitors). */
-  multiMonitor?: boolean;
-  /** Width of each individual monitor in pixels (half of total width). */
-  monitorWidth?: number;
 }
 
 function makeToken(p: ConnectBody): string {
@@ -69,13 +65,6 @@ function makeToken(p: ConnectBody): string {
         'disable-offscreen-caching':  'false',
         'disable-glyph-caching':      'false',
         'resize-method':       'reconnect',
-        // Multi-monitor: tells FreeRDP/Windows the session spans two monitors.
-        // When enabled, Windows sees two separate monitors and keyboard shortcuts
-        // like Win+Shift+→ work to move windows between them.
-        ...(p.multiMonitor ? {
-          'multi-monitor':  'true',
-          'normalize-clip': 'true',
-        } : {}),
       },
     },
   };

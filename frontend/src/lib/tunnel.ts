@@ -20,9 +20,6 @@ export class RDPTunnel extends Guacamole.Tunnel {
   private ws: WebSocket | null = null;
   private buffer = '';
 
-  /** Called with each complete raw Guacamole instruction string (including `;`). */
-  onrawdata?: (raw: string) => void;
-
   constructor(
     private readonly wsBase: string,
     private readonly params: ConnectParams,
@@ -114,7 +111,6 @@ export class RDPTunnel extends Guacamole.Tunnel {
       i = dot + 1 + len;
       if (raw[i] === ',') i++;
     }
-    this.onrawdata?.(raw);
     if (parts.length > 0 && this.oninstruction) {
       this.oninstruction(parts[0], parts.slice(1));
     }

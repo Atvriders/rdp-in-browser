@@ -2,11 +2,10 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSessionStore } from './store/useSessionStore';
 import {
   getChannel, announce, ping, pong, disconnect as sendDisconnect,
-  sendDragging, updatePhantom, cancelDrag, moveWindow, send,
+  sendDragging, updatePhantom, cancelDrag, moveWindow,
 } from './lib/displayChannel';
 import ConnectForm from './components/ConnectForm';
 import RDPSession from './components/RDPSession';
-import ExtendedDisplay from './components/ExtendedDisplay';
 import type { ConnectParams, RDPSession as Session, ChannelMsg } from './types';
 
 export default function App() {
@@ -21,16 +20,8 @@ export default function App() {
   const [showForm, setShowForm]     = useState(true);
   const [draggingOutId, setDraggingOutId] = useState<string | null>(null);
 
-  // Extended dual-monitor state
-  const [extendedMode, setExtendedMode]           = useState(false);
-  const [extendedPrimaryWidth, setExtPrimaryWidth] = useState(0);
-
-  const myDisplayRef         = useRef(myDisplay);
-  const extendedModeRef      = useRef(extendedMode);
-  const extPrimaryWidthRef   = useRef(extendedPrimaryWidth);
-  myDisplayRef.current       = myDisplay;
-  extendedModeRef.current    = extendedMode;
-  extPrimaryWidthRef.current = extendedPrimaryWidth;
+  const myDisplayRef = useRef(myDisplay);
+  myDisplayRef.current = myDisplay;
 
   // ── BroadcastChannel + display detection ──────────────────────────────────
   useEffect(() => {
@@ -58,11 +49,6 @@ export default function App() {
         setPairedDisplay(msg.display);
         setPairedScreenX(msg.screenX);
         pong(myDisplayRef.current);
-        // If we're already in extended mode (e.g. secondary refreshed),
-        // re-send extend-display so the new window doesn't miss it.
-        if (extendedModeRef.current && myDisplayRef.current === 'primary') {
-          send({ type: 'extend-display', primaryWidth: extPrimaryWidthRef.current, totalHeight: window.innerHeight });
-        }
       }
       if (msg.type === 'ping') {
         setPairedConnected(true);
@@ -94,12 +80,6 @@ export default function App() {
         adoptSession(msg.session);
         setFocusedId(msg.session.id);
       }
-      // Secondary window receives extend-display from primary
-      if (msg.type === 'extend-display') {
-        setExtendedMode(true);
-        setExtPrimaryWidth(msg.primaryWidth);
-        setShowForm(false);
-      }
     };
 
     ch.addEventListener('message', handler);
@@ -111,33 +91,6 @@ export default function App() {
       clearInterval(positionPoll);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ── Extended mode lifecycle ────────────────────────────────────────────────
-  // When pairing state changes, activate or deactivate extended mode on primary.
-  useEffect(() => {
-    if (!pairedConnected) {
-      // Peer disconnected — exit extended mode
-      if (extendedModeRef.current) {
-        setExtendedMode(false);
-      }
-      return;
-    }
-    // Newly paired — activate extended mode if we are primary and have sessions
-    if (myDisplayRef.current === 'primary' && !extendedModeRef.current) {
-      const primarySessions = useSessionStore.getState().sessions.filter(s => s.display === 'primary');
-      if (primarySessions.length > 0) {
-        activateExtended();
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pairedConnected]);
-
-  const activateExtended = useCallback(() => {
-    const pw = window.innerWidth;
-    send({ type: 'extend-display', primaryWidth: pw, totalHeight: window.innerHeight });
-    setExtendedMode(true);
-    setExtPrimaryWidth(pw);
   }, []);
 
   // ── Drag to other display ─────────────────────────────────────────────────
@@ -223,10 +176,6 @@ export default function App() {
   const handleConnect = (params: ConnectParams) => {
     openSession(params);
     setShowForm(false);
-    // If already paired as primary and not yet in extended mode, activate now
-    if (pairedConnected && myDisplayRef.current === 'primary' && !extendedModeRef.current) {
-      activateExtended();
-    }
   };
 
   return (
@@ -253,7 +202,7 @@ export default function App() {
         <div className="taskbar-right">
           {pairedConnected && (
             <span className="taskbar-dual" title={`Dual monitor — paired with ${pairedDisplay}`}>
-              🖥️🖥️ {extendedMode ? 'Extended' : 'Dual'}
+              🖥️🖥️ Dual
             </span>
           )}
           <span className="taskbar-display">{myDisplay === 'primary' ? '← Primary' : 'Secondary →'}</span>
@@ -262,11 +211,6 @@ export default function App() {
 
       {/* ── Desktop ── */}
       <div className="desktop">
-        {/* Extended display on secondary window */}
-        {myDisplay === 'secondary' && extendedMode && (
-          <ExtendedDisplay primaryWidth={extendedPrimaryWidth} />
-        )}
-
         {/* Sessions (only rendered on the owning display) */}
         {sessions.filter(s => s.display === myDisplay).map(s => (
           <RDPSession
@@ -274,7 +218,6 @@ export default function App() {
             session={s}
             focused={focusedId === s.id}
             draggingOut={draggingOutId === s.id}
-            extendedMode={extendedMode && myDisplay === 'primary'}
             onFocus={() => setFocusedId(s.id)}
             onClose={() => { closeSession(s.id); if (focusedId === s.id) setFocusedId(null); }}
             onUpdate={(patch) => updateSession(s.id, patch)}
@@ -292,8 +235,8 @@ export default function App() {
           </div>
         )}
 
-        {/* Connect form modal — hidden on secondary extended display */}
-        {showForm && !(myDisplay === 'secondary' && extendedMode) && (
+        {/* Connect form modal */}
+        {showForm && (
           <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowForm(false); }}>
             <ConnectForm onConnect={handleConnect} />
           </div>
@@ -306,7 +249,7 @@ export default function App() {
             <div className="empty-title">No active connections</div>
             <div className="empty-sub">Click <strong>＋ New RDP</strong> to connect to a remote desktop</div>
             {pairedConnected && (
-              <div className="empty-pair">🖥️🖥️ Second monitor connected — start an RDP session to enable extended display</div>
+              <div className="empty-pair">🖥️🖥️ Second monitor connected</div>
             )}
           </div>
         )}
