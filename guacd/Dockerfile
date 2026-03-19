@@ -5,8 +5,7 @@ USER root
 RUN apk add --no-cache \
         xorg-server \
         xf86-video-dummy \
-        xrandr \
-        xinerama-dev
+        xrandr
 
 # Find the guacd binary and symlink it to a known location
 RUN GUACD_REAL=$(find /opt /usr -name guacd -type f 2>/dev/null | head -1) \
